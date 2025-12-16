@@ -221,6 +221,7 @@ class Search:
         # 重置计数
         self.nodes_evaluated = 0
         self.pruning_count = 0
+        print(f"AI玩家{self.player}正在思考...")
         
         # 获取所有合法移动
         all_moves = game_state['valid_moves']
