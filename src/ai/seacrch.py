@@ -7,8 +7,10 @@ class Search:
     def __init__(self, player, depth=3):
         self.player = player
         self.depth = depth
+        
         self.nodes_evaluated = 0
         self.pruning_count = 0
+    
         
     def get_opponent(self, player):
         """获取对手编号"""
