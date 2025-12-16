@@ -2,11 +2,11 @@
 import pygame
 import sys
 import math
+import os
 from board import ChineseCheckersBoard, CubeCoord
 
 
 class ChineseCheckersGUI:
-    """中国跳棋图形界面"""
 
     def __init__(self, board=None):
         pygame.init()
@@ -53,42 +53,44 @@ class ChineseCheckersGUI:
         self.winner = None
         self.message = ""
         self.message_timer = 0
+        self.fonts_loaded = False
+        self.font = None
+        self.title_font = None
+        self.status_font = None
+        self._init_fonts()
 
-        # 字体
-        self.font = pygame.font.SysFont(None, 24)
-        self.title_font = pygame.font.SysFont(None, 36)
-        self.status_font = pygame.font.SysFont(None, 28)
-
-        # 从moves导入移动生成器
         try:
             from moves import ChineseCheckersMoves
             self.moves_gen = ChineseCheckersMoves
         except ImportError:
-            print("警告: 无法导入移动生成器，游戏功能可能受限")
             self.moves_gen = None
 
+    def _init_fonts(self):
+        try:
+            font_path = "STSONG.TTF"
+            if os.path.exists(font_path):
+                self.font = pygame.font.Font(font_path, 24)
+                self.title_font = pygame.font.Font(font_path, 36)
+                self.status_font = pygame.font.Font(font_path, 28)
+                self.fonts_loaded = True
+        except Exception as e:
+            self.font = pygame.font.SysFont(None, 24)
+            self.title_font = pygame.font.SysFont(None, 36)
+            self.status_font = pygame.font.SysFont(None, 28)
+
     def cube_to_pixel(self, coord):
-        """将立方坐标转换为像素坐标"""
         x = self.hex_size * (math.sqrt(3) * coord.q + math.sqrt(3) / 2 * coord.r)
         y = self.hex_size * (3 / 2 * coord.r)
         return (x + self.view_offset_x, y + self.view_offset_y)
 
     def pixel_to_cube(self, pixel_x, pixel_y):
-        """将像素坐标转换为立方坐标（近似）"""
-        # 这是一个简化的反向转换，用于鼠标点击检测
         x = pixel_x - self.view_offset_x
         y = pixel_y - self.view_offset_y
-
-        # 使用轴向坐标进行转换
         q = (math.sqrt(3) / 3 * x - 1 / 3 * y) / self.hex_size
         r = (2 / 3 * y) / self.hex_size
-
-        # 四舍五入到最近的整数坐标
         q_round = round(q)
         r_round = round(r)
         s_round = round(-q - r)
-
-        # 调整以确保q+r+s=0
         q_diff = abs(q_round - q)
         r_diff = abs(r_round - r)
         s_diff = abs(s_round - (-q - r))
@@ -103,18 +105,15 @@ class ChineseCheckersGUI:
         return CubeCoord(q_round, r_round, s_round)
 
     def draw_hexagon(self, center, color, border_color=None, border_width=1):
-        """绘制一个六边形"""
         x, y = center
         points = []
 
         for i in range(6):
-            angle_deg = 60 * i - 30  # -30度使一个点朝上
+            angle_deg = 60 * i - 30
             angle_rad = math.pi / 180 * angle_deg
             point_x = x + self.hex_size * math.cos(angle_rad)
             point_y = y + self.hex_size * math.sin(angle_rad)
             points.append((point_x, point_y))
-
-        # 填充六边形
         pygame.draw.polygon(self.screen, color, points)
 
         # 绘制边框
@@ -122,7 +121,6 @@ class ChineseCheckersGUI:
             pygame.draw.polygon(self.screen, border_color, points, border_width)
 
     def draw_piece(self, center, player, selected=False):
-        """绘制棋子"""
         x, y = center
 
         # 棋子颜色
@@ -133,7 +131,6 @@ class ChineseCheckersGUI:
         else:
             return
 
-        # 绘制棋子主体
         radius = self.hex_size * 0.8
         pygame.draw.circle(self.screen, color, (x, y), int(radius))
 
@@ -149,7 +146,6 @@ class ChineseCheckersGUI:
             pygame.draw.circle(self.screen, self.COLORS['selected'], (x, y), int(radius * 1.1), 3)
 
     def get_cell_color(self, region):
-        """根据区域类型获取格子颜色"""
         if region == 'tri0':
             return self.COLORS['region_tri0']
         elif region == 'tri3':
@@ -162,7 +158,6 @@ class ChineseCheckersGUI:
             return (255, 255, 255)  # 默认白色
 
     def draw_board(self):
-        """绘制整个棋盘"""
         # 清屏
         self.screen.fill(self.COLORS['bg'])
 
@@ -200,33 +195,33 @@ class ChineseCheckersGUI:
                 self.draw_piece(pixel_pos, piece, is_selected)
 
     def draw_ui(self):
-        """绘制用户界面元素"""
         # 绘制标题
         title = self.title_font.render("中国跳棋 - Chinese Checkers", True, self.COLORS['text'])
         self.screen.blit(title, (self.SCREEN_WIDTH // 2 - title.get_width() // 2, 10))
 
         # 绘制玩家信息
-        player1_text = self.status_font.render(f"玩家1 (红色)", True, self.COLORS['player1'])
-        player2_text = self.status_font.render(f"玩家2 (蓝色)", True, self.COLORS['player2'])
+        player1_text = self.status_font.render("玩家1 (红色)", True, self.COLORS['player1'])
+        player2_text = self.status_font.render("玩家2 (蓝色)", True, self.COLORS['player2'])
         self.screen.blit(player1_text, (50, 60))
-        self.screen.blit(player2_text, (self.SCREEN_WIDTH - 150, 60))
+        self.screen.blit(player2_text, (self.SCREEN_WIDTH - 200, 60))
 
         # 绘制当前玩家
+        current_player_str = f"当前回合: {'玩家1' if self.current_player == 1 else '玩家2'}"
         current_player_text = self.status_font.render(
-            f"当前回合: {'玩家1' if self.current_player == 1 else '玩家2'}",
+            current_player_str,
             True,
             self.COLORS['player1'] if self.current_player == 1 else self.COLORS['player2']
         )
-        self.screen.blit(current_player_text, (self.SCREEN_WIDTH // 2 - 100, 60))
+        self.screen.blit(current_player_text, (self.SCREEN_WIDTH // 2 - current_player_text.get_width() // 2, 60))
 
         # 绘制棋子统计
         player1_pieces = len(self.board.get_player_pieces(1))
         player2_pieces = len(self.board.get_player_pieces(-1))
 
-        pieces_text = self.font.render(f"玩家1棋子: {player1_pieces}/10", True, self.COLORS['text'])
-        self.screen.blit(pieces_text, (50, 90))
-        pieces_text = self.font.render(f"玩家2棋子: {player2_pieces}/10", True, self.COLORS['text'])
-        self.screen.blit(pieces_text, (self.SCREEN_WIDTH - 150, 90))
+        pieces_text1 = self.font.render(f"玩家1棋子: {player1_pieces}/10", True, self.COLORS['text'])
+        pieces_text2 = self.font.render(f"玩家2棋子: {player2_pieces}/10", True, self.COLORS['text'])
+        self.screen.blit(pieces_text1, (50, 90))
+        self.screen.blit(pieces_text2, (self.SCREEN_WIDTH - 200, 90))
 
         # 绘制进度
         for player in [1, -1]:
@@ -235,16 +230,13 @@ class ChineseCheckersGUI:
             in_target = sum(1 for coord in player_pieces
                             if self.board.get_region(coord) == target_region)
 
-            progress_text = self.font.render(
-                f"目标区域: {in_target}/10",
-                True,
-                self.COLORS['text']
-            )
+            progress_str = f"目标区域: {in_target}/10"
+            progress_text = self.font.render(progress_str, True, self.COLORS['text'])
 
             if player == 1:
                 self.screen.blit(progress_text, (50, 120))
             else:
-                self.screen.blit(progress_text, (self.SCREEN_WIDTH - 150, 120))
+                self.screen.blit(progress_text, (self.SCREEN_WIDTH - 200, 120))
 
         # 绘制操作说明
         instructions = [
@@ -253,21 +245,19 @@ class ChineseCheckersGUI:
             "2. 点击目标格子移动",
             "3. ESC: 取消选择",
             "4. R: 重新开始游戏",
-            "5. 空格: 随机视角"
+            "5. 空格: 随机视角",
+            "6. C: 居中视角"
         ]
 
         for i, text in enumerate(instructions):
             instruction = self.font.render(text, True, self.COLORS['text'])
-            self.screen.blit(instruction, (50, self.SCREEN_HEIGHT - 150 + i * 25))
+            self.screen.blit(instruction, (50, self.SCREEN_HEIGHT - 180 + i * 25))
 
         # 如果游戏结束，显示获胜者
         if self.game_over and self.winner:
             winner_color = self.COLORS['player1'] if self.winner == 1 else self.COLORS['player2']
-            winner_text = self.title_font.render(
-                f"游戏结束! 玩家{self.winner} 获胜!",
-                True,
-                winner_color
-            )
+            winner_str = f"游戏结束! 玩家{self.winner} 获胜!"
+            winner_text = self.title_font.render(winner_str, True, winner_color)
             text_rect = winner_text.get_rect(center=(self.SCREEN_WIDTH // 2, self.SCREEN_HEIGHT // 2))
             pygame.draw.rect(self.screen, self.COLORS['bg'], text_rect.inflate(20, 10), border_radius=10)
             pygame.draw.rect(self.screen, winner_color, text_rect.inflate(20, 10), 3, border_radius=10)
@@ -280,46 +270,33 @@ class ChineseCheckersGUI:
             self.message_timer -= 1
 
     def show_message(self, message, duration=60):
-        """显示消息"""
         self.message = message
         self.message_timer = duration
 
     def handle_click(self, pos):
-        """处理鼠标点击"""
         if self.game_over:
             return
 
         x, y = pos
         clicked_coord = self.pixel_to_cube(x, y)
-
-        # 检查是否点击了有效格子
         if not self.board.is_valid_cell(clicked_coord):
             self.show_message("无效的格子!")
             return
-
-        # 如果有棋子被选中
         if self.selected_piece is not None:
-            # 检查是否点击了自己的棋子（切换选择）
             piece = self.board.get_piece(clicked_coord)
             if piece == self.current_player:
                 self.selected_piece = clicked_coord
                 self.update_valid_moves()
                 return
-
-            # 检查是否是有效移动
             for move in self.valid_moves:
                 if len(move) > 0 and move[0] == self.selected_piece and move[-1] == clicked_coord:
-                    # 执行移动
                     self.execute_move(move)
                     return
-
-            # 如果不是有效移动，清除选择
             self.selected_piece = None
             self.valid_moves = []
             self.show_message("无效的移动!")
 
         else:
-            # 如果没有棋子被选中，尝试选择一个棋子
             piece = self.board.get_piece(clicked_coord)
             if piece == self.current_player:
                 self.selected_piece = clicked_coord
@@ -328,37 +305,22 @@ class ChineseCheckersGUI:
                 self.show_message("这不是你的棋子!")
 
     def update_valid_moves(self):
-        """更新当前选中棋子的有效移动"""
         self.valid_moves = []
 
         if not self.selected_piece or not self.moves_gen:
             return
-
-        # 获取该棋子的所有可能移动
         self.valid_moves = self.moves_gen.generate_moves_for_piece(self.board, self.selected_piece)
-
-        # 过滤掉当前玩家不能移动的棋子（应该不会发生，但以防万一）
         if self.board.get_piece(self.selected_piece) != self.current_player:
             self.selected_piece = None
             self.valid_moves = []
 
     def execute_move(self, move):
-        """执行移动"""
         try:
-            # 应用移动到棋盘
             self.board = self.moves_gen.apply_move(self.board, move)
-
-            # 切换玩家
             self.current_player *= -1
-
-            # 清除选择
             self.selected_piece = None
             self.valid_moves = []
-
-            # 检查游戏是否结束
             self.check_game_over()
-
-            # 显示移动信息
             move_info = f"移动了 {len(move) - 1} 步"
             if len(move) > 2:
                 move_info += f" (包含{len(move) - 2}次跳跃)"
@@ -369,7 +331,6 @@ class ChineseCheckersGUI:
             print(f"移动错误: {e}")
 
     def check_game_over(self):
-        """检查游戏是否结束"""
         # 检查玩家1是否获胜
         player1_won = True
         target_region = self.board.player_target_regions[1]
@@ -404,7 +365,6 @@ class ChineseCheckersGUI:
             self.winner = -1
 
     def reset_game(self):
-        """重置游戏"""
         self.board = ChineseCheckersBoard()
         self.selected_piece = None
         self.valid_moves = []
@@ -417,7 +377,6 @@ class ChineseCheckersGUI:
         self.view_offset_y = self.SCREEN_HEIGHT // 2
 
     def run(self):
-        """运行主游戏循环"""
         clock = pygame.time.Clock()
         running = True
 
@@ -464,21 +423,6 @@ class ChineseCheckersGUI:
 
 
 def main():
-    """主函数"""
-    print("启动中国跳棋游戏...")
-    print("游戏说明:")
-    print("1. 玩家1(红色)从右侧三角形开始，目标是对面的左侧三角形")
-    print("2. 玩家2(蓝色)从左侧三角形开始，目标是对面的右侧三角形")
-    print("3. 可以单步移动或跳过棋子进行跳跃")
-    print("4. 连续跳跃在一次移动中完成")
-    print("\n控制:")
-    print("- 鼠标左键: 选择棋子和移动")
-    print("- ESC: 取消选择")
-    print("- R: 重新开始游戏")
-    print("- 空格: 随机视角")
-    print("- C: 居中视角")
-    print()
-
     # 创建并运行游戏
     game = ChineseCheckersGUI()
     game.run()

@@ -77,7 +77,7 @@ class ChineseCheckersMoves:
 
         # 3. 距离必须大于1（跳跃至少跳过1个棋子）
         distance = from_coord.distance(to_coord)
-        if distance < 2:
+        if distance !=2:
             return False
 
         # 4. 中间的所有格子都必须有棋子
