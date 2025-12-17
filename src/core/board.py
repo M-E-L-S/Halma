@@ -19,6 +19,10 @@ class CubeCoord:
         """乘以标量"""
         return CubeCoord(self.q * scalar, self.r * scalar, self.s * scalar)
 
+    def __floordiv__(self, other):
+        """本身除以other"""
+        return CubeCoord(self.q // other, self.r // other, self.s // other)
+
     def __eq__(self, other):
         return self.q == other.q and self.r == other.r and self.s == other.s
 
@@ -111,7 +115,7 @@ class ChineseCheckersBoard:
         # 棋盘参数
         self.hex_radius = 4  # 中心六边形半径
         self.triangle_size = 4  # 三角形边长
-
+        self.special_mode = False  # 当前模式为普通模式
         # 存储棋盘状态
         self.cells = {}  # 坐标 -> 棋子值 (0: 空, 1: 玩家1, -1: 玩家2)
         self.regions = {}  # 坐标 -> 区域类型
@@ -248,6 +252,13 @@ class ChineseCheckersBoard:
     def get_all_cells(self):
         return list(self.cells.keys())
 
+    def get_current_mode(self):
+        """获取当前模式（普通模式/镜像模式）"""
+        return self.special_mode
+
+    def change_mode(self):
+        self.special_mode = not self.special_mode
+
     def get_player_pieces(self, player):
         """获取玩家的所有棋子坐标"""
         return [coord for coord, piece in self.cells.items()
@@ -263,6 +274,7 @@ class ChineseCheckersBoard:
         new_board.regions = copy.deepcopy(self.regions)
         new_board.player_start_regions = self.player_start_regions.copy()
         new_board.player_target_regions = self.player_target_regions.copy()
+        new_board.special_mode = self.special_mode
         return new_board
 
     def print_board_info(self):
