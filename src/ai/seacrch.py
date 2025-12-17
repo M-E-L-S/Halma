@@ -3,6 +3,7 @@ from typing import List, Tuple, Optional
 import math
 from src.core.board import ChineseCheckersBoard, CubeCoord
 from src.core.moves import ChineseCheckersMoves
+from .evaluator import ChineseCheckersEvaluator
 
 class Search:
     def __init__(self, player, depth=3):
@@ -10,6 +11,7 @@ class Search:
         self.depth = depth
         self.nodes_evaluated = 0
         self.pruning_count = 0
+        self.eva = None
         
         self.max_branch_factor = 20  # 每层最大搜索分支数
         self.early_move_factor = 12  # 早期搜索分支数（深度较大时减少）
@@ -136,6 +138,8 @@ class Search:
     
     def make_move(self, game_state):
         """选择最佳移动 - 主接口"""
+
+        self.eva = ChineseCheckersEvaluator(game_state['board'])
         
         board = game_state['board']
         current_player = game_state['current_player']
@@ -275,7 +279,7 @@ class Search:
             return min_eval
     
     def evaluate_board(self, board, player):
-       pass
+       return self.eva.evaluate(board.cells.copy(), player)
     
     def _count_pieces_in_target(self, board, board_player):
         target_region = board.player_target_regions[board_player]
