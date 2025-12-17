@@ -1,5 +1,3 @@
-<<<<<<< HEAD
-=======
 class CubeCoord:
     """立方体坐标表示六边形网格"""
 
@@ -299,5 +297,3 @@ class ChineseCheckersBoard:
                 if self.regions[coord] == target_region
             ])
             print(f"玩家{player}在目标区域{target_region}: {pieces_in_target}/10")
-
->>>>>>> 5d11d76ac3625202243fdb18629245aeb9d38824
