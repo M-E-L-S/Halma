@@ -420,10 +420,7 @@ class ChineseCheckersGUI:
             "2. 点击目标格子移动",
             "3. ESC: 取消选择",
             "4. 空格: 随机视角",
-            "5.  切换AI模式",
-            "6.  切换游戏模式",
-            "7.  重新开始",
-            "8.  居中视角",
+
         ]
 
         for i, text in enumerate(instructions):
