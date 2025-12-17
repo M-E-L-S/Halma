@@ -632,12 +632,6 @@ class ChineseCheckersGUI:
                 move_info += f" (包含{len(move) - 2}次跳跃)"
             self.show_message(move_info)
 
-            # 如果启用了AI，检查是否需要AI行动
-            if self.use_ai and not self.game_over:
-                # 延迟一小段时间让玩家看到移动效果
-                import time
-                pygame.time.delay(300)
-                self.ai_move()
         except Exception as e:
             self.show_message(f"移动错误: {str(e)}")
             print(f"移动错误: {e}")
@@ -708,6 +702,9 @@ class ChineseCheckersGUI:
         while running:
             mouse_pos = pygame.mouse.get_pos()
             self.update_button_hover(mouse_pos)
+
+            if(self.use_ai and self.current_player in self.ai_players and not self.game_over):
+                self.ai_move()
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
