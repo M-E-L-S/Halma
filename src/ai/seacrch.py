@@ -275,7 +275,7 @@ class Search:
             return min_eval
     
     def evaluate_board(self, board, player):
-       pass
+       return 0
     
     def _count_pieces_in_target(self, board, board_player):
         target_region = board.player_target_regions[board_player]
