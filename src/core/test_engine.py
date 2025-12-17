@@ -4,10 +4,17 @@ def test_chinese_checkers():
     print("测试中国跳棋引擎...")
     print("=" * 50)
 
+<<<<<<< HEAD
     from src.core.board import ChineseCheckersBoard
     from src.core.moves import ChineseCheckersMoves
     from src.core.game_state import ChineseCheckersGame
     from src.core.board import CubeCoord
+=======
+    from board import ChineseCheckersBoard
+    from moves import ChineseCheckersMoves
+    from game_state import ChineseCheckersGame
+    from board import CubeCoord
+>>>>>>> 4df9e2bc9aeedfcc2694ab47d689d8b22fcbedb5
 
     # 1. 创建棋盘
     print("1. 创建棋盘...")

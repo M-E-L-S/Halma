@@ -1,6 +1,11 @@
 # game_state.py
+<<<<<<< HEAD
 from src.core.board import ChineseCheckersBoard
 from src.core.moves import ChineseCheckersMoves
+=======
+from board import ChineseCheckersBoard
+from moves import ChineseCheckersMoves
+>>>>>>> 4df9e2bc9aeedfcc2694ab47d689d8b22fcbedb5
 
 class ChineseCheckersGame:
     """中国跳棋游戏状态管理"""

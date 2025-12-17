@@ -1,5 +1,9 @@
 # rules.py
+<<<<<<< HEAD
 from src.core.moves import *
+=======
+from moves import *
+>>>>>>> 4df9e2bc9aeedfcc2694ab47d689d8b22fcbedb5
 class GameRules:
     @staticmethod
     def get_all_valid_moves(board, player):

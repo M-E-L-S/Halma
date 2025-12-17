@@ -1,5 +1,9 @@
 # moves.py
+<<<<<<< HEAD
 from src.core.board import *
+=======
+from board import *
+>>>>>>> 4df9e2bc9aeedfcc2694ab47d689d8b22fcbedb5
 class ChineseCheckersMoves:
     """中国跳棋移动生成器"""
 
@@ -77,7 +81,11 @@ class ChineseCheckersMoves:
 
         # 3. 距离必须大于1（跳跃至少跳过1个棋子）
         distance = from_coord.distance(to_coord)
+<<<<<<< HEAD
         if distance < 2:
+=======
+        if distance !=2:
+>>>>>>> 4df9e2bc9aeedfcc2694ab47d689d8b22fcbedb5
             return False
 
         # 4. 中间的所有格子都必须有棋子
