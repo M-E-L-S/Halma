@@ -1,7 +1,12 @@
 # moves.py
 <<<<<<< HEAD
+<<<<<<< HEAD
 from src.core.board import *
 =======
+=======
+from sympy import false
+
+>>>>>>> 5d11d76ac3625202243fdb18629245aeb9d38824
 from board import *
 >>>>>>> 4df9e2bc9aeedfcc2694ab47d689d8b22fcbedb5
 class ChineseCheckersMoves:
@@ -79,20 +84,40 @@ class ChineseCheckersMoves:
         if direction is None:
             return False
 
-        # 3. 距离必须大于1（跳跃至少跳过1个棋子）
+        # 3. 普通模式下距离必须为2
         distance = from_coord.distance(to_coord)
+<<<<<<< HEAD
 <<<<<<< HEAD
         if distance < 2:
 =======
         if distance !=2:
 >>>>>>> 4df9e2bc9aeedfcc2694ab47d689d8b22fcbedb5
+=======
+        current_mode = board.get_current_mode()
+        if (current_mode == False) and (distance !=2):
+>>>>>>> 5d11d76ac3625202243fdb18629245aeb9d38824
             return False
 
-        # 4. 中间的所有格子都必须有棋子
-        for step in range(1, distance):
-            mid_cell = from_coord + (direction * step)
+        # 4. 普通模式下中间的所有格子都必须有棋子
+        if not current_mode:
+            for step in range(1, distance):
+                mid_cell = from_coord + (direction * step)
+                if not board.is_valid_cell(mid_cell) or board.is_empty(mid_cell):
+                    return False
+        # 5. 镜像模式下正中为棋子，其余为空
+        if current_mode:
+            if distance % 2 != 0:
+                return False
+            mid_cell = from_coord + (direction * distance // 2)
             if not board.is_valid_cell(mid_cell) or board.is_empty(mid_cell):
                 return False
+            for step in range(1, distance):
+                cell = from_coord + (direction * step)
+                if cell == mid_cell:
+                    continue
+                if not board.is_empty(cell):
+                    return False
+
 
         return True
 

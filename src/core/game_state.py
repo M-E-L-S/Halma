@@ -18,6 +18,7 @@ class ChineseCheckersGame:
         self.winner = None
         self.turn_count = 0
 
+
     def get_state(self):
         """获取当前游戏状态（给AI使用）"""
         return {
@@ -28,7 +29,8 @@ class ChineseCheckersGame:
             'game_over': self.game_over,
             'winner': self.winner,
             'turn_count': self.turn_count,
-            'player_progress': self._get_player_progress()
+            'player_progress': self._get_player_progress(),
+            'special_mode': self.board.get_current_mode()
         }
 
     def _get_player_progress(self):
