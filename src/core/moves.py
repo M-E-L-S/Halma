@@ -1,7 +1,7 @@
 # moves.py
 from sympy import false
 
-from board import *
+from src.core.board import *
 class ChineseCheckersMoves:
     """中国跳棋移动生成器"""
 

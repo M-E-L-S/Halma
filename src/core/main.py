@@ -3,8 +3,8 @@ import pygame
 import sys
 import math
 import os
-from board import ChineseCheckersBoard, CubeCoord
-
+from src.core.board import ChineseCheckersBoard, CubeCoord
+from src.ai.seacrch import Search
 
 class ChineseCheckersGUI:
     """中国跳棋图形界面"""
@@ -78,6 +78,12 @@ class ChineseCheckersGUI:
                 'text': '修复视角偏移',
                 'active': False,
                 'hover': False
+            },
+            'ai_toggle':{
+                'rect': pygame.Rect(self.SCREEN_WIDTH - 200, 400, 160, 40),
+                'text': '玩家2设为AI',
+                'active': False,
+                'hover': False
             }
         }
 
@@ -101,6 +107,69 @@ class ChineseCheckersGUI:
             print(f"初始模式: {'镜像模式' if self.board.special_mode else '普通模式'}")
         else:
             print("警告: 棋盘没有special_mode属性")
+        # 添加AI设置
+        self.ai_players = {}  # 存储AI玩家
+        self.use_ai = False  # 是否启用AI
+        self.ai_thinking = False  # AI是否正在思考
+
+    def init_ai(self, player_id, depth=3):
+        """初始化AI玩家"""
+        try:
+            from src.ai.ai_agent import AIPlayer
+            self.ai_players[player_id] = AIPlayer(player_id, depth)
+            print(f"AI玩家{player_id}初始化完成 (搜索深度: {depth})")
+        except ImportError as e:
+            print(f"无法导入AI模块: {e}")
+            return False
+        return True
+
+    def toggle_ai_mode(self, player_id=None):
+        """切换AI模式"""
+        if not self.ai_players:
+            # 如果没有初始化AI，先初始化
+            if player_id is None:
+                player_id = -1  # 默认玩家2为AI
+            if self.init_ai(player_id):
+                self.use_ai = True
+                self.show_message(f"玩家{player_id}已设为AI")
+
+                # 如果是当前玩家是AI，立即行动
+                if self.current_player == player_id and not self.game_over:
+                    self.ai_move()
+            else:
+                self.show_message("AI初始化失败")
+        else:
+            # 移除AI
+            self.ai_players.clear()
+            self.use_ai = False
+            self.show_message("AI模式已关闭")
+
+    def ai_move(self):
+        """执行AI移动"""
+        if not self.use_ai or self.game_over or self.ai_thinking:
+            return
+
+        if self.current_player in self.ai_players:
+            self.ai_thinking = True
+            self.show_message("AI正在思考...")
+
+            # 获取游戏状态
+            from game_state import ChineseCheckersGame
+            game_state_obj = ChineseCheckersGame(self.board)
+            game_state = game_state_obj.get_state()
+
+            # 获取AI移动
+            ai_player = self.ai_players[self.current_player]
+            best_move = ai_player.get_move(game_state)
+
+            if best_move:
+                # 执行移动
+                self.execute_move(best_move)
+            else:
+                self.show_message("AI没有找到合法移动")
+                self.current_player *= -1  # 切换玩家
+
+            self.ai_thinking = False
 
     def _init_fonts(self):
         """初始化字体"""
@@ -351,6 +420,7 @@ class ChineseCheckersGUI:
             "2. 点击目标格子移动",
             "3. ESC: 取消选择",
             "4. 空格: 随机视角",
+
         ]
 
         for i, text in enumerate(instructions):
@@ -409,7 +479,12 @@ class ChineseCheckersGUI:
 
     def handle_click(self, pos):
         """处理鼠标点击"""
-        if self.game_over:
+        if self.game_over or self.ai_thinking:
+            return
+
+            # 如果当前玩家是AI，不接受玩家输入
+        if self.use_ai and self.current_player in self.ai_players:
+            self.show_message("现在是AI的回合，请等待")
             return
 
         x, y = pos
@@ -453,6 +528,13 @@ class ChineseCheckersGUI:
 
     def handle_button_click(self, button_key):
         """处理按钮点击"""
+        if button_key == 'ai_toggle':
+            if self.use_ai:
+                self.toggle_ai_mode()
+                self.buttons['ai_toggle']['text'] = '玩家2设为AI'
+            else:
+                self.toggle_ai_mode(-1)
+                self.buttons['ai_toggle']['text'] = '关闭AI模式'
         if button_key == 'mode_toggle':
             # 切换游戏模式
             try:
@@ -550,6 +632,12 @@ class ChineseCheckersGUI:
                 move_info += f" (包含{len(move) - 2}次跳跃)"
             self.show_message(move_info)
 
+            # 如果启用了AI，检查是否需要AI行动
+            if self.use_ai and not self.game_over:
+                # 延迟一小段时间让玩家看到移动效果
+                import time
+                pygame.time.delay(300)
+                self.ai_move()
         except Exception as e:
             self.show_message(f"移动错误: {str(e)}")
             print(f"移动错误: {e}")
