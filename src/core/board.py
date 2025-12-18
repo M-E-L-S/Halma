@@ -102,11 +102,11 @@ class CubeCoord:
 # 六边形的6个方向（立方坐标）
 CubeCoord.hex_directions = [
     CubeCoord(1, 0, -1),  # 0: 东
-    CubeCoord(1, -1, 0),  # 1: 东南
-    CubeCoord(0, -1, 1),  # 2: 西南
+    CubeCoord(1, -1, 0),  # 1: 东北
+    CubeCoord(0, -1, 1),  # 2: 西北
     CubeCoord(-1, 0, 1),  # 3: 西
-    CubeCoord(-1, 1, 0),  # 4: 西北
-    CubeCoord(0, 1, -1)  # 5: 东北
+    CubeCoord(-1, 1, 0),  # 4: 西南
+    CubeCoord(0, 1, -1)  # 5: 东南
 ]
 class ChineseCheckersBoard:
     """中国跳棋棋盘：六边形+三角形"""
