@@ -3,6 +3,7 @@ from typing import List, Tuple, Optional
 import math
 from src.core.board import ChineseCheckersBoard, CubeCoord
 from src.core.moves import ChineseCheckersMoves
+from .evaluator import ChineseCheckersEvaluator
 
 class Search:
     def __init__(self, player, depth=3):
@@ -13,6 +14,7 @@ class Search:
             player: 玩家编号 (1 或 2)
             depth: 搜索深度
         """
+        self.eva = None
         self.player = player
         self.depth = depth
         self.nodes_evaluated = 0
@@ -232,6 +234,7 @@ class Search:
             最佳移动
         """
         print(f"AI 玩家{self.player} 开始思考...")
+        self.eva = ChineseCheckersEvaluator(game_state['board'])
         
         # 获取棋盘状态
         board = game_state['board']
@@ -409,47 +412,7 @@ class Search:
             return min_eval
     
     def evaluate_board(self, board):
-        """
-        评估整个棋盘状态
-        
-        参数:
-            board: 棋盘对象
-            
-        返回:
-            评估分数（对AI玩家有利时为正）
-        """
-        score = 0
-        
-        # 获取对手编号
-        opponent = self.get_opponent(self.player)
-        
-        # 1. 目标区域棋子数
-        board_player = 1 if self.player == 1 else 2
-        board_opponent = 1 if opponent == 1 else 2
-        
-        ai_in_target = self._count_pieces_in_target(board, board_player)
-        opponent_in_target = self._count_pieces_in_target(board, board_opponent)
-        score += (ai_in_target - opponent_in_target) * 1000
-        
-        # 2. 前进进度
-        ai_progress = self._calculate_progress(board, self.player)
-        opponent_progress = self._calculate_progress(board, opponent)
-        score += (ai_progress - opponent_progress) * 100
-        
-        # 3. 中心控制
-        center_control = self._calculate_center_control(board)
-        score += center_control * 50
-        
-        # 4. 棋子连接度
-        connectivity = self._calculate_connectivity(board)
-        score += connectivity * 30
-        
-        # 5. 移动灵活性
-        ai_mobility = len(ChineseCheckersMoves.generate_all_moves(board, board_player))
-        opponent_mobility = len(ChineseCheckersMoves.generate_all_moves(board, board_opponent))
-        score += (ai_mobility - opponent_mobility) * 10
-        
-        return score
+        return self.eva.evaluate(board.cells.copy(), self.player)
     
     def _count_pieces_in_target(self, board, player):
         """计算在目标区域的棋子数"""
