@@ -80,18 +80,18 @@ class Search:
         # 转换玩家编号用于获取目标区域
         board_player = 1 if player == 1 else -1
         target_region = board.player_target_regions[board_player]
-        
+
         # 获取玩家棋子
         player_pieces = board.get_player_pieces(board_player)
-        
+
         # 所有棋子都必须在目标区域
         if len(player_pieces) != 10:
             return False
-        
+
         for coord in player_pieces:
             if board.get_region(coord) != target_region:
                 return False
-        
+
         return True
     
     def order_moves(self, board, moves, player):
@@ -336,8 +336,7 @@ class Search:
         # 检查游戏是否结束
         if self.check_winner(board, self.player):
             return 10000 + depth * 100
-        elif self.check_winner(board, self.get_opponent(self.player)):
-            return -10000 - depth * 100
+
         
         # 生成当前玩家的所有合法移动
         move_player = 1 if player == 1 else -1

@@ -17,8 +17,10 @@ import pygame
 import sys
 import math
 import os
+
 from src.core.board import ChineseCheckersBoard, CubeCoord
-from src.ai.seacrch import Search
+from src.ai.tradition_serach  import Search
+
 
 class ChineseCheckersGUI:
     """中国跳棋图形界面"""
@@ -41,7 +43,7 @@ class ChineseCheckersGUI:
             'highlight': (255, 255, 100),  # 高亮黄色
             'selected': (255, 200, 50),  # 选中橙色
             'text': (30, 30, 30),
-            'gender':(85,242,242),
+            'gender': (85, 242, 242),
             'region_tri0': (255, 200, 200),  # 玩家1区域（淡红）
             'region_tri3': (200, 200, 255),  # 玩家2区域（淡蓝）
             'region_hex': (230, 230, 200),  # 中心区域（淡黄）
@@ -74,6 +76,10 @@ class ChineseCheckersGUI:
         self.message = ""
         self.message_timer = 0
 
+        # AI消息（独立于普通消息）
+        self.ai_message = ""
+        self.ai_thinking_message = ""
+
         # 按钮定义
         self.buttons = {
             'mode_toggle': {
@@ -94,7 +100,7 @@ class ChineseCheckersGUI:
                 'active': False,
                 'hover': False
             },
-            'ai_toggle':{
+            'ai_toggle': {
                 'rect': pygame.Rect(self.SCREEN_WIDTH - 200, 400, 160, 40),
                 'text': '玩家2设为AI',
                 'active': False,
@@ -122,70 +128,85 @@ class ChineseCheckersGUI:
             print(f"初始模式: {'镜像模式' if self.board.special_mode else '普通模式'}")
         else:
             print("警告: 棋盘没有special_mode属性")
+
         # 添加AI设置
-        self.ai_players = {}  # 存储AI玩家
         self.use_ai = False  # 是否启用AI
         self.ai_thinking = False  # AI是否正在思考
+        self.ai_agent = None  # AI代理
 
-    def init_ai(self, player_id, depth=5):
-        """初始化AI玩家"""
-        try:
-            from src.ai.ai_agent import AIPlayer
-            self.ai_players[player_id] = AIPlayer(player_id, depth)
-            print(f"AI玩家{player_id}初始化完成 (搜索深度: {depth})")
-        except ImportError as e:
-            print(f"无法导入AI模块: {e}")
-            return False
-        return True
-
-    def toggle_ai_mode(self, player_id=None):
+    def toggle_ai_mode(self):
         """切换AI模式"""
-        if not self.ai_players:
-            # 如果没有初始化AI，先初始化
-            if player_id is None:
-                player_id = -1  # 默认玩家2为AI
-            if self.init_ai(player_id):
+        if not self.use_ai:
+            # 初始化AI
+            try:
+                self.ai_agent = Search(player=2, depth=3)  # 使用Search类，玩家2，搜索深度3
                 self.use_ai = True
-                self.show_message(f"玩家{player_id}已设为AI")
-
-                # 如果是当前玩家是AI，立即行动
-                if self.current_player == player_id and not self.game_over:
-                    self.ai_move()
-            else:
-                self.show_message("AI初始化失败")
+                self.buttons['ai_toggle']['text'] = '关闭AI模式'
+                self.show_message("AI已启用")
+                # 设置AI消息
+                self.set_ai_message("现在是AI的回合，请等待...")
+            except Exception as e:
+                print(f"AI初始化失败: {e}")
+                self.show_message(f"AI初始化失败: {str(e)}")
         else:
-            # 移除AI
-            self.ai_players.clear()
+            # 关闭AI
+            self.ai_agent = None
             self.use_ai = False
-            self.show_message("AI模式已关闭")
+            self.buttons['ai_toggle']['text'] = '玩家2设为AI'
+            self.show_message("AI已关闭")
+            self.clear_ai_message()
+
+    def set_ai_message(self, message):
+        """设置AI消息"""
+        self.ai_message = message
+
+    def set_ai_thinking_message(self, message):
+        """设置AI思考消息"""
+        self.ai_thinking_message = message
+
+    def clear_ai_message(self):
+        """清除AI消息"""
+        self.ai_message = ""
+        self.ai_thinking_message = ""
 
     def ai_move(self):
         """执行AI移动"""
-        if not self.use_ai or self.game_over or self.ai_thinking:
+        if not self.use_ai or self.game_over or self.ai_thinking or self.current_player != -1:
             return
 
-        if self.current_player in self.ai_players:
+        try:
             self.ai_thinking = True
-            self.show_message("AI正在思考...")
+            self.set_ai_thinking_message("AI正在思考中...")
 
-            # 获取游戏状态
-            from game_state import ChineseCheckersGame
-            game_state_obj = ChineseCheckersGame(self.board)
-            game_state_obj.current_player = self.current_player
-            game_state = game_state_obj.get_state()
+            # 创建游戏状态
+            game_state = {
+                'board': self.board,
+                'current_player': -1,  # AI是玩家2
+                'valid_moves': self.moves_gen.generate_all_moves(self.board, -1) if self.moves_gen else []
+            }
 
             # 获取AI移动
-            ai_player = self.ai_players[self.current_player]
-            best_move = ai_player.get_move(game_state)
+            best_move = self.ai_agent.make_move(game_state)
 
             if best_move:
+                # 清除AI消息
+                self.clear_ai_message()
                 # 执行移动
                 self.execute_move(best_move)
+                # 显示AI移动信息
+                self.show_message(f"AI移动了 {len(best_move) - 1} 步")
             else:
                 self.show_message("AI没有找到合法移动")
-                self.current_player *= -1  # 切换玩家
+                self.current_player = 1  # 切换回玩家1
+                self.clear_ai_message()
 
             self.ai_thinking = False
+
+        except Exception as e:
+            print(f"AI移动错误: {e}")
+            self.show_message(f"AI移动错误: {str(e)}")
+            self.ai_thinking = False
+            self.clear_ai_message()
 
     def _init_fonts(self):
         """初始化字体"""
@@ -436,7 +457,7 @@ class ChineseCheckersGUI:
             "2. 点击目标格子移动",
             "3. ESC: 取消选择",
             "4. 空格: 随机视角",
-
+            "5. AI回合时请等待",
         ]
 
         for i, text in enumerate(instructions):
@@ -472,6 +493,25 @@ class ChineseCheckersGUI:
             instruction = self.font.render(text, True, self.COLORS['text'])
             self.screen.blit(instruction, (self.SCREEN_WIDTH - 350, self.SCREEN_HEIGHT - 180 + i * 25))
 
+        # 显示普通消息（中间位置）
+        if self.message and self.message_timer > 0:
+            message_text = self.font.render(self.message, True, (255, 50, 50))
+            text_rect = message_text.get_rect(center=(self.SCREEN_WIDTH // 2, 150))
+            self.screen.blit(message_text, text_rect)
+            self.message_timer -= 1
+
+        # 显示AI消息（固定位置，红色）
+        if self.ai_message and self.current_player == -1:
+            ai_message_text = self.font.render(self.ai_message, True, (255, 50, 50))
+            text_rect = ai_message_text.get_rect(center=(self.SCREEN_WIDTH // 2, 200))
+            self.screen.blit(ai_message_text, text_rect)
+
+        # 显示AI思考消息（固定位置，蓝色）
+        if self.ai_thinking_message:
+            thinking_text = self.status_font.render(self.ai_thinking_message, True, (50, 50, 255))
+            text_rect = thinking_text.get_rect(center=(self.SCREEN_WIDTH // 2, 250))
+            self.screen.blit(thinking_text, text_rect)
+
         # 如果游戏结束，显示获胜者
         if self.game_over and self.winner:
             winner_color = self.COLORS['player1'] if self.winner == 1 else self.COLORS['player2']
@@ -482,14 +522,8 @@ class ChineseCheckersGUI:
             pygame.draw.rect(self.screen, winner_color, text_rect.inflate(20, 10), 3, border_radius=10)
             self.screen.blit(winner_text, text_rect)
 
-        # 显示消息
-        if self.message and self.message_timer > 0:
-            message_text = self.font.render(self.message, True, (255, 50, 50))
-            self.screen.blit(message_text, (self.SCREEN_WIDTH // 2 - message_text.get_width() // 2, 150))
-            self.message_timer -= 1
-
     def show_message(self, message, duration=60):
-        """显示消息"""
+        """显示普通消息"""
         self.message = message
         self.message_timer = duration
 
@@ -498,9 +532,11 @@ class ChineseCheckersGUI:
         if self.game_over or self.ai_thinking:
             return
 
-            # 如果当前玩家是AI，不接受玩家输入
-        if self.use_ai and self.current_player in self.ai_players:
-            self.show_message("现在是AI的回合，请等待")
+        # 如果当前玩家是AI，不接受玩家输入
+        if self.use_ai and self.current_player == -1:
+            # 设置AI消息
+            if not self.ai_message:
+                self.set_ai_message("现在是AI的回合，请等待...")
             return
 
         x, y = pos
@@ -545,13 +581,9 @@ class ChineseCheckersGUI:
     def handle_button_click(self, button_key):
         """处理按钮点击"""
         if button_key == 'ai_toggle':
-            if self.use_ai:
-                self.toggle_ai_mode()
-                self.buttons['ai_toggle']['text'] = '玩家2设为AI'
-            else:
-                self.toggle_ai_mode(-1)
-                self.buttons['ai_toggle']['text'] = '关闭AI模式'
-        if button_key == 'mode_toggle':
+            self.toggle_ai_mode()
+
+        elif button_key == 'mode_toggle':
             # 切换游戏模式
             try:
                 if hasattr(self.board, 'change_mode') and callable(self.board.change_mode):
@@ -639,6 +671,10 @@ class ChineseCheckersGUI:
             self.selected_piece = None
             self.valid_moves = []
 
+            # 如果是AI回合结束，清除AI消息
+            if self.use_ai and self.current_player == 1:
+                self.clear_ai_message()
+
             # 检查游戏是否结束
             self.check_game_over()
 
@@ -685,9 +721,11 @@ class ChineseCheckersGUI:
             if player1_won:
                 self.game_over = True
                 self.winner = 1
+                self.clear_ai_message()  # 游戏结束时清除AI消息
             elif player2_won:
                 self.game_over = True
                 self.winner = -1
+                self.clear_ai_message()  # 游戏结束时清除AI消息
 
         except Exception as e:
             print(f"检查游戏结束错误: {e}")
@@ -705,6 +743,10 @@ class ChineseCheckersGUI:
         self.view_offset_x = self.SCREEN_WIDTH // 2
         self.view_offset_y = self.SCREEN_HEIGHT // 2
 
+        # 清除AI消息
+        self.clear_ai_message()
+        self.ai_thinking = False
+
         for button_key in self.buttons:
             self.buttons[button_key]['active'] = False
             self.buttons[button_key]['hover'] = False
@@ -716,12 +758,29 @@ class ChineseCheckersGUI:
         clock = pygame.time.Clock()
         running = True
 
+        # AI思考延迟计数器
+        ai_think_delay = 0
+
         while running:
             mouse_pos = pygame.mouse.get_pos()
             self.update_button_hover(mouse_pos)
 
-            if(self.use_ai and self.current_player in self.ai_players and not self.game_over):
-                self.ai_move()
+            # 检查是否需要AI行动
+            if (self.use_ai and self.current_player == -1 and
+                    not self.game_over and not self.ai_thinking):
+                # 先显示AI回合消息
+                if not self.ai_message:
+                    self.set_ai_message("现在是AI的回合，请等待...")
+
+                # 设置一个小的延迟，让玩家能看到AI回合消息
+                if ai_think_delay < 30:  # 等待30帧（约0.5秒）
+                    ai_think_delay += 1
+                else:
+                    # 开始AI思考
+                    self.ai_move()
+                    ai_think_delay = 0
+            else:
+                ai_think_delay = 0
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -752,6 +811,10 @@ class ChineseCheckersGUI:
                     elif event.key == pygame.K_m:
                         # 模拟点击模式切换按钮
                         self.handle_button_click('mode_toggle')
+
+                    elif event.key == pygame.K_a:
+                        # 切换AI模式
+                        self.toggle_ai_mode()
 
                     elif event.key == pygame.K_r:
                         self.reset_game()
@@ -788,6 +851,7 @@ def main():
     print("- ESC: 取消选择")
     print("- 空格: 随机视角")
     print("- M: 切换模式 (快捷键)")
+    print("- A: 切换AI模式 (快捷键)")
     print("- R: 重新开始游戏 (快捷键)")
     print("- C: 居中视角 (快捷键)")
     print()
