@@ -154,7 +154,7 @@ class Search:
         end_dist = self._region_distance_to_target(end_region, player)
         
         if end_dist < start_dist:  # 向目标前进
-            score += 200 * (start_dist - end_dist)
+            score += 500 * (start_dist - end_dist)
         
         # 3. 跳跃奖励
         if len(move) > 2:  # 连续跳跃
