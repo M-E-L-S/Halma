@@ -29,7 +29,7 @@ class Search:
         self.pruning_count = 0
         
         # 终局BFS搜索参数
-        self.ENDGAME_THRESHOLD = 6       # 进入终局的棋子数阈值
+        self.ENDGAME_THRESHOLD = 7       # 进入终局的棋子数阈值
         self.BFS_MAX_DEPTH = 15          # BFS最大搜索深度
         self.BFS_MAX_BRANCHES = 20      # BFS每层最大分支
         
@@ -89,16 +89,41 @@ class Search:
         return True
     
     def is_in_endgame(self, board, player):
-        board_player = self._to_board_player(player)
-        target_region = board.player_target_regions[board_player]
-        player_pieces = board.get_player_pieces(board_player)
+        board_player = self.player  # AI: -1
+        opponent_board_player = -board_player       # 对手: 1
         
-        in_target = 0
-        for piece in player_pieces:
-            if board.get_region(piece) == target_region:
-                in_target += 1
+        # 获取双方棋子
+        ai_pieces = board.get_player_pieces(board_player)
+        opponent_pieces = board.get_player_pieces(opponent_board_player)
         
-        return in_target >= self.ENDGAME_THRESHOLD
+        if not ai_pieces or not opponent_pieces:
+            return False
+        
+        # 条件1: 检查最小距离是否大于2
+        min_distance = float('inf')
+        for ai_piece in ai_pieces:
+            for opp_piece in opponent_pieces:
+                distance = ai_piece.distance(opp_piece)
+                if distance < min_distance:
+                    min_distance = distance
+                    if min_distance <= self.min_distance_threshold:
+                        # 有棋子距离≤2，不满足终局条件
+                        return False
+        
+        if min_distance <= self.min_distance_threshold:
+            return False
+        
+        # 条件2: AI方是否有棋子进入对方坑位
+        # AI的目标区域是tri0（东），对手的目标区域是tri3（西）
+        # AI的棋子进入对方坑位 = AI棋子在对面的起始区域tri3
+        opponent_target_for_ai = 'tri3'  # 对于AI（玩家2）来说，对方的坑位是tri3
+        
+        ai_pieces_in_opponent_target = 0
+        for piece in ai_pieces:
+            if board.get_region(piece) == opponent_target_for_ai:
+                ai_pieces_in_opponent_target += 1
+        
+        return ai_pieces_in_opponent_target > 0
     
     def get_pieces_in_target(self, board, player):
         """获取在目标区域的棋子数"""
