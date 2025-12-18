@@ -17,19 +17,30 @@ class EvaluationWeights:
     def __init__(self):
         # 基础距离权重
         self.DISTANCE_WEIGHT = 1.0
-        self.DISTANCE_SQUARED_WEIGHT = 0.3
+
+        self.MAX_DISTANCE_WEIGHT = 0.5  # 最远棋子距离权重
+        self.DISTANCE_LINE_WEIGHT = 1.0  # 平均距离权重
+        self.DISTANCE_SQUARED_WEIGHT = 0.5 # 距离平方和权重
+
 
         # 棋子分布权重
         self.FORMATE_WEIGHT = 1.0
-        self.CLUSTER_WEIGHT = -0.3  # 聚类惩罚，鼓励分散
-        self.ISOLATED_PIECE_PENALTY = -3  # 孤立棋子惩罚
+
+        self.ISOLATED_PIECE_PENALTY = -2  # 孤立棋子惩罚
+
+
         # 连通性权重
-        self.reach_weight = 0.5
-        self.depth_weight = 1
         self.CONNECTIVITY_WEIGHT = 1.5
+
+        self.reach_weight = 0.1
+        self.depth_weight = 1
+
+
         # 进度权重
         self.PROGRESS_WEIGHT = 1.5
-        self.COMPLETION_WEIGHT = 2.0  # 完成目标的奖励
+
+        self.LEFT_START_WEIGHT = 5.0  # 离开起始区域的奖励
+        self.COMPLETION_WEIGHT = 5.0  # 完成目标的奖励
 
 
 class ChineseCheckersEvaluator:
@@ -163,78 +174,35 @@ class ChineseCheckersEvaluator:
         avg_my_dist = sum(my_distances) / len(my_distances) if my_distances else 0
         avg_opp_dist = sum(opp_distances) / len(opp_distances) if opp_distances else 0
 
-        d_score += (avg_opp_dist - avg_my_dist) * self.weights.DISTANCE_WEIGHT
+        d_score += (avg_opp_dist - avg_my_dist) * self.weights.DISTANCE_LINE_WEIGHT
 
         # 额外奖励：最远棋子的距离改善
         if my_distances:
             max_my_dist = max(my_distances)
-            d_score -= max_my_dist * 0.1
+            d_score -= max_my_dist * self.weights.MAX_DISTANCE_WEIGHT
 
         # 距离平方和：鼓励均衡前进
         sum_sq_my = sum(d*d for d in my_distances)
         sum_sq_opp = sum(d*d for d in opp_distances)
         d_score += (sum_sq_opp - sum_sq_my) * self.weights.DISTANCE_SQUARED_WEIGHT
 
-        return d_score
+        return d_score * self.weights.DISTANCE_WEIGHT
 
     def _evaluate_formation(self, my_positions: List[CubeCoord],
                            opp_positions: List[CubeCoord]) -> float:
         """
-        评估棋子聚类程度
-        过度聚类会阻塞移动，适度分散更好
+        评估棋子孤立程度
         """
         if len(my_positions) < 2:
             return 0.0
 
-        # 计算平均最近邻距离
-        nearest_distances = []
-        for i, pos1 in enumerate(my_positions):
-            min_dist = float('inf')
-            for j, pos2 in enumerate(my_positions):
-                if i != j:
-                    dist = pos1.distance(pos2)
-                    if dist < min_dist:
-                        min_dist = dist
-            nearest_distances.append(min_dist)
+        ave_dists: List[float] = []
+        for pos in my_positions:
+            pos_dists = [pos.distance(other) for other in my_positions if other != pos]
+            ave_dist_score = (sum(pos_dists) / len(pos_dists)) * self.weights.ISOLATED_PIECE_PENALTY
+            ave_dists.append(ave_dist_score)
 
-        avg_nearest_dist = sum(nearest_distances) / len(nearest_distances)
-
-        # 聚类得分：距离太小表示过度聚类
-        if avg_nearest_dist < 2:
-            f_score = 10  # 高度聚类（负价值）
-        elif avg_nearest_dist < 4:
-            f_score = 5  # 适度聚类
-        else:
-            f_score = 0.0  # 分散良好
-
-        f_score *= self.weights.CLUSTER_WEIGHT
-
-        isolated_penalty = self._evaluate_isolated_pieces(my_positions)
-        f_score += isolated_penalty * self.weights.ISOLATED_PIECE_PENALTY
-
-        return f_score * self.weights.FORMATE_WEIGHT
-
-    def _evaluate_isolated_pieces(self, positions: List[CubeCoord]) -> float:
-        """
-        评估孤立棋子数量
-        """
-        if not positions:
-            return 0.0
-        is_isolated = True
-        isolated_count = 0
-
-        for pos in positions:
-            for direction in range(6):
-                neighbor = pos.neighbor(direction)
-                if neighbor in self.board_state and self.board_state[neighbor] != 0:
-                    is_isolated = False
-                    break
-
-            if is_isolated:
-                isolated_count += 1
-            is_isolated = True
-
-        return isolated_count
+        return (sum(ave_dists) / len(ave_dists)) * self.weights.FORMATE_WEIGHT
 
     def jump_reach_and_depth(self, start: CubeCoord):
         visited: Set[CubeCoord] = set()
@@ -295,29 +263,9 @@ class ChineseCheckersEvaluator:
         # 完成目标奖励
         p_score += (my_in_target - opp_in_target) * self.weights.COMPLETION_WEIGHT
 
-        # 计算接近目标区域的棋子（距离<=2）
-        my_near_target = 0
-        for pos in my_positions:
-            if pos not in my_target:
-                min_dist = min(pos.distance(target) for target in my_target)
-                if min_dist <= 2:
-                    my_near_target += 1
-
-        opp_near_target = 0
-        for pos in opp_positions:
-            if pos not in opp_target:
-                min_dist = min(pos.distance(target) for target in opp_target)
-                if min_dist <= 2:
-                    opp_near_target += 1
-
-        p_score += (my_near_target - opp_near_target) * 0.5
-
         # 奖励离开起始区域的棋子
         my_left_start = sum(1 for pos in my_positions if pos not in self.player1_start_cells)
-
-        if len(my_positions) > 0:
-            progress_from_start = my_left_start / len(my_positions)
-            p_score += progress_from_start * 0.3
+        p_score += my_left_start * self.weights.LEFT_START_WEIGHT
 
         return p_score * self.weights.PROGRESS_WEIGHT
 

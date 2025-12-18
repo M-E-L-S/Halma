@@ -112,7 +112,7 @@ class ChineseCheckersGUI:
         self.use_ai = False  # 是否启用AI
         self.ai_thinking = False  # AI是否正在思考
 
-    def init_ai(self, player_id, depth=3):
+    def init_ai(self, player_id, depth=5):
         """初始化AI玩家"""
         try:
             from src.ai.ai_agent import AIPlayer
@@ -156,6 +156,7 @@ class ChineseCheckersGUI:
             # 获取游戏状态
             from game_state import ChineseCheckersGame
             game_state_obj = ChineseCheckersGame(self.board)
+            game_state_obj.current_player = self.current_player
             game_state = game_state_obj.get_state()
 
             # 获取AI移动
