@@ -30,13 +30,14 @@ class Search:
         
         # 终局BFS搜索参数
         self.ENDGAME_THRESHOLD = 8       # 进入终局的棋子数阈值
-        self.BFS_MAX_DEPTH = 10          # BFS最大搜索深度
-        self.BFS_MAX_BRANCHES = 15       # BFS每层最大分支
         self.min_distance_threshold = 2  # 双方棋子最小距离阈值（新增）
-        
-        # 目标区域定义（保留你对AI的硬编码：玩家2的目标区是tri0，对方坑位是tri3）
+
+        self.BFS_PATH = []               # 终局BFS路径存储
+        self.BFS_FOUND = False           # 终局BFS是否找到路径标志
+        self.ENDGAME_FLAG = False        # 终局阶段标志
+
         self.target_region_name = 'tri0' if player == -1 else 'tri3'
-        self.opponent_target_for_ai = 'tri3' if player == -1 else 'tri0'
+        self.opponent_target_for_ai = 'tri0' if player == -1 else 'tri3'
     
     def get_opponent(self, player):
         """获取对手编号（保持1/-1映射）"""
@@ -89,7 +90,7 @@ class Search:
         """
         # 修复1：正确转换为board内部的玩家编号（1/-1），而非直接用self.player
         board_player = self._to_board_player(self.player)  # AI的内部编号（比如玩家2对应-1）
-        opponent_board_player = -board_player              # 对手的内部编号（比如1）
+        opponent_board_player = - board_player              # 对手的内部编号（比如1）
         
         # 获取双方棋子
         ai_pieces = board.get_player_pieces(board_player)
@@ -276,19 +277,23 @@ class Search:
             return win_move
         
         # 检查是否进入终局阶段
-        is_endgame = self.is_in_endgame(board, current_player)
-        pieces_in_target = self.get_pieces_in_target(board, current_player)
+        if not self.ENDGAME_FLAG:
+            self.ENDGAME_FLAG = self.is_in_endgame(board, current_player)
         
-        if is_endgame:
-            print(f"进入终局阶段！AI有棋子进入对方坑位，目标区棋子数：{pieces_in_target}/10")
+        if self.ENDGAME_FLAG:
             print("使用优化终局BFS搜索...")
-            
-            best_move = self._optimized_endgame_bfs(board, current_player, all_moves)
-            if best_move:
-                print(f"找到终局最优移动")
-                return best_move
+
+            if not self.BFS_PATH:
+                best_move = self._optimized_endgame_bfs(board, current_player, all_moves)
+                if best_move:
+                    print(f"找到终局最优移动")
+                    return best_move
+                else:
+                    print("终局搜索失败，回退到Alpha-Beta搜索")
             else:
-                print("终局搜索失败，回退到Alpha-Beta搜索")
+                print("终局路径已存在，继续使用BFS路径")
+                self.BFS_PATH.pop(0)
+                return self.BFS_PATH[0]
         
         # 检查对手威胁
         opponent = self.get_opponent(current_player)
@@ -344,65 +349,103 @@ class Search:
         print(f"最佳评估值: {best_score}")
         
         return best_move if best_move else (ordered_moves[0] if ordered_moves else None)
-    
-    # ==================== 核心修复：终局BFS搜索（强制优先外部棋子） ====================
+
     def _optimized_endgame_bfs(self, board, player, all_moves):
-        """
-        优化后的终局BFS搜索：强制优先处理外部棋子
-        """
+        from collections import deque
+
         board_player = self._to_board_player(player)
         target_region = board.player_target_regions[board_player]
-        
-        # 1. 找出所有外部棋子（核心：优先处理）
-        player_pieces = board.get_player_pieces(board_player)
-        pieces_outside = [p for p in player_pieces if board.get_region(p) != target_region]
-        
-        # 2. 只要有外部棋子，就只考虑外部棋子的移动
-        if pieces_outside:
-            print(f"发现{len(pieces_outside)}个外部棋子，强制优先移动！")
-            # 过滤出所有外部棋子的移动
-            outside_moves = [m for m in all_moves if m[0] in pieces_outside]
-            
-            if outside_moves:
-                # 优先检查是否有外部棋子直接进入目标区的移动
-                enter_moves = [m for m in outside_moves if board.get_region(m[-1]) == target_region]
-                if enter_moves:
-                    print(f"找到{len(enter_moves)}个外部棋子进入目标区的移动，优先选择")
-                    return enter_moves[0]
-                
-                # 对外部移动排序，选前进最多的
-                outside_moves = self.order_moves(board, outside_moves, player)
-                return outside_moves[0] if outside_moves else None
-        
-        # 3. 没有外部棋子时，限制内部棋子的循环移动
-        print("所有棋子已在目标区，选择稳定移动（避免循环）")
-        return self._select_stable_move(board, player, all_moves)
-    
-    def _select_stable_move(self, board, player, all_moves):
-        """
-        选择稳定移动：目标区内棋子尽量不动，避免循环
-        """
-        if not all_moves:
-            return None
-        
-        board_player = self._to_board_player(player)
-        target_region = board.player_target_regions[board_player]
-        
-        # 定义"稳定度"：移动距离越短越稳定，最好是不动（跳棋无不动，选最短）
-        def stability_score(move):
-            start = move[0]
-            end = move[-1]
-            # 目标区内的移动：距离越短越好
-            if board.get_region(start) == target_region:
-                return start.distance(end)
-            # 外部棋子已处理，此处不会走到
-            return float('inf')
-        
-        # 按稳定度排序：距离越短越优先
-        sorted_moves = sorted(all_moves, key=stability_score)
-        return sorted_moves[0]
-    
-    # ==================== Alpha-Beta搜索核心（保持不变） ====================
+
+        # 序列化棋盘用于判重
+        def serialize(b):
+            items = []
+            for coord in sorted(b.cells.keys(), key=lambda c: (getattr(c, 'q', 0), getattr(c, 'r', 0),
+                                                               getattr(c, 's', 0) if hasattr(c, 's') else 0)):
+                owner = b.get_piece(coord) if hasattr(b, 'get_piece') else (b.cells.get(coord, 0))
+                q = getattr(coord, 'q', 0)
+                r = getattr(coord, 'r', 0)
+                s = getattr(coord, 's', None)
+                if s is None:
+                    items.append((q, r, owner))
+                else:
+                    items.append((q, r, s, owner))
+            return tuple(items)
+
+        # 过滤规则：已在目标区的棋子不允许移出目标区；允许目标区内部移动或外部棋子任意移动
+        def move_allowed(m, b):
+            start = m[0]
+            end = m[-1]
+            start_region = b.get_region(start)
+            end_region = b.get_region(end)
+            if start_region == target_region and end_region != target_region:
+                return False
+            if start_region == target_region and end_region == target_region:
+                return True
+            if start_region != target_region:
+                return True
+            return False
+
+        # 候选排序：优先外部进入目标区，其次外部移动，再目标区内移动；长跳略优
+        def order_candidates(moves_list, b):
+            scored = []
+            for m in moves_list:
+                s = 0
+                start = m[0]
+                end = m[-1]
+                start_region = b.get_region(start)
+                end_region = b.get_region(end)
+                if start_region != target_region and end_region == target_region:
+                    s += 10000
+                elif start_region != target_region:
+                    s += 100
+                else:
+                    s += 10
+                if len(m) > 2:
+                    s += 10 * (len(m) - 1)
+                scored.append((s, m))
+            scored.sort(reverse=True, key=lambda x: x[0])
+            return [m for _, m in scored]
+
+        q = deque()
+        start_ser = serialize(board)
+        q.append((board, [], 0))
+        visited = set([start_ser])
+
+        while q:
+            cur_board, path, depth = q.popleft()
+
+            # 仅生成 AI 的连续移动
+            valid_moves = ChineseCheckersMoves.generate_all_moves(cur_board, board_player)
+            if not valid_moves:
+                continue
+
+            filtered = [m for m in valid_moves if move_allowed(m, cur_board)]
+            if not filtered:
+                continue
+
+            ordered = order_candidates(filtered, cur_board)
+
+            for m in ordered:
+                new_board = ChineseCheckersMoves.apply_move(cur_board, m)
+                ser = serialize(new_board)
+                if ser in visited:
+                    continue
+                visited.add(ser)
+
+                new_path = path + [m]
+
+                # 检查是否胜利（对外部 player）
+                if self.check_winner(new_board, player):
+                    self.BFS_FOUND = True
+                    self.BFS_PATH = new_path
+                    return self.BFS_PATH[0] if self.BFS_PATH else None
+
+                q.append((new_board, new_path, depth + 1))
+
+        self.BFS_FOUND = False
+        self.BFS_PATH = []
+        return None
+
     def _alpha_beta(self, board, depth, is_maximizing, alpha, beta, player):
         """Alpha-Beta剪枝核心算法"""
         self.nodes_evaluated += 1

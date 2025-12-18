@@ -40,7 +40,7 @@ class EvaluationWeights:
         self.PROGRESS_WEIGHT = 1.5
 
         self.LEFT_START_WEIGHT = 10.0  # 离开起始区域的奖励
-        self.COMPLETION_WEIGHT = 20.0  # 完成目标的奖励
+        self.COMPLETION_WEIGHT = 40.0  # 完成目标的奖励
 
 
 class ChineseCheckersEvaluator:
