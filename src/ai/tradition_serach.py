@@ -122,14 +122,9 @@ class Search:
         
         for move in moves:
             score = self._evaluate_move(board, move, player)
-            # 确保score是数值类型
-            if not isinstance(score, (int, float)):
-                score = 0
             scored_moves.append((score, move))
         
-        # 安全排序：只比较分数
         scored_moves.sort(reverse=True, key=lambda x: x[0])
-        
         max_moves = min(20, len(scored_moves))
         return [move for _, move in scored_moves[:max_moves]]
     
@@ -698,12 +693,12 @@ class Search:
                 if board.get_region(move[-1]) == target_region:
                     return move
             
-            # 其次选择前进距离最大的移动 - 修复排序
+            # 其次选择前进距离最大的移动
             primary_moves.sort(
-                key=lambda m: self._calculate_advancement(m[0], m[-1], board, player) if m and len(m) >= 2 else -10000,
+                key=lambda m: self._calculate_advancement(m[0], m[-1], board, player),
                 reverse=True
             )
-            return primary_moves[0] if primary_moves else None
+            return primary_moves[0]
         
         # 如果主要棋子没有移动，尝试次要棋子
         secondary_moves = []
@@ -713,10 +708,10 @@ class Search:
         
         if secondary_moves:
             secondary_moves.sort(
-                key=lambda m: self._calculate_advancement(m[0], m[-1], board, player) if m and len(m) >= 2 else -10000,
+                key=lambda m: self._calculate_advancement(m[0], m[-1], board, player),
                 reverse=True
             )
-            return secondary_moves[0] if secondary_moves else None
+            return secondary_moves[0]
         
         # 如果都没有，返回第一个移动
         return all_moves[0] if all_moves else None
