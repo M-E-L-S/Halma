@@ -1,4 +1,18 @@
-# chinese_checkers_gui.py - 修正完整版本
+import sys
+import os
+
+# 获取当前文件所在目录 (src/core/)
+current_dir = os.path.dirname(os.path.abspath(__file__))
+# 获取src目录
+src_dir = os.path.dirname(current_dir)  # src
+# 获取项目根目录 (Halma/)
+project_root = os.path.dirname(src_dir)  # Halma
+
+# 添加src目录到路径（这样可以直接从src导入）
+sys.path.insert(0, src_dir)
+
+# 或者添加项目根目录到路径（这样可以用src.core.module_name导入）
+sys.path.insert(0, project_root)
 import pygame
 import sys
 import math

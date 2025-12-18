@@ -269,4 +269,3 @@ class ChineseCheckersBoard:
                 if self.regions[coord] == target_region
             ])
             print(f"玩家{player}在目标区域{target_region}: {pieces_in_target}/10")
-
