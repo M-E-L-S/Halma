@@ -56,10 +56,9 @@ class ChineseCheckersEvaluator:
 
     def _initialize_from_board(self):
         """从棋盘对象初始化区域信息"""
-        # 获取所有单元格
         self.all_cells = self.board.get_all_cells()
 
-        # 定义目标区域（根据棋盘设置）
+        # 定义目标区域
         self.player1_target_cells = self._get_target_cells(Player.PLAYER1.value)
         self.player2_target_cells = self._get_target_cells(Player.PLAYER2.value)
 
@@ -92,7 +91,6 @@ class ChineseCheckersEvaluator:
         """
         self.board_state = _board_state
 
-        # 提取棋子位置
         player1_positions = [pos for pos, player in self.board_state.items()
                            if player == Player.PLAYER1.value]
         player2_positions = [pos for pos, player in self.board_state.items()
@@ -276,7 +274,6 @@ class ChineseCheckersEvaluator:
         用于搜索树的浅层评估，计算速度更快
         只考虑关键因素：距离、进度和位置价值
         """
-        # 提取棋子位置
         player1_positions = [pos for pos, player in board_state.items()
                            if player == Player.PLAYER1.value]
         player2_positions = [pos for pos, player in board_state.items()

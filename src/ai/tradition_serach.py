@@ -12,7 +12,7 @@ class Search:
         初始化跳棋搜索AI
         
         参数:
-            player: 玩家编号 (1 或 2)
+            player: 玩家编号 (1 或 -1)
             depth: 搜索深度
         """
         self.eva = None
@@ -34,7 +34,7 @@ class Search:
     
     def get_opponent(self, player):
         """获取对手编号"""
-        return 2 if player == 1 else 1  # 修正：返回2或1，不是-1
+        return -1 if player == 1 else 1
     
     def _to_board_player(self, player):
         """将1或2转换为1或-1供board使用"""
@@ -42,7 +42,7 @@ class Search:
     
     def _from_board_player(self, board_player):
         """将1或-1转换为1或2"""
-        return 1 if board_player == 1 else 2
+        return 1 if board_player == 1 else -1
     
     def possible_moves(self, board, player):
         """
