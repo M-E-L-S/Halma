@@ -23,45 +23,40 @@ class Search:
             depth: 搜索深度
         """
         self.eva = None
-        self.player = player
+        self.player = player  # 外部传入的1/2（比如玩家2对应内部-1）
         self.depth = depth
         self.nodes_evaluated = 0
         self.pruning_count = 0
         
         # 终局BFS搜索参数
-        self.ENDGAME_THRESHOLD = 7       # 进入终局的棋子数阈值
-        self.BFS_MAX_DEPTH = 15          # BFS最大搜索深度
-        self.BFS_MAX_BRANCHES = 20      # BFS每层最大分支
+        self.ENDGAME_THRESHOLD = 8       # 进入终局的棋子数阈值
+        self.BFS_MAX_DEPTH = 10          # BFS最大搜索深度
+        self.BFS_MAX_BRANCHES = 15       # BFS每层最大分支
+        self.min_distance_threshold = 2  # 双方棋子最小距离阈值（新增）
         
-        # 目标区域定义
-        if player == 1:
-            self.target_region_name = 'tri3'  # 玩家1的目标区域
-        else:
-            self.target_region_name = 'tri0'  # 玩家2的目标区域
+        # 目标区域定义（保留你对AI的硬编码：玩家2的目标区是tri0，对方坑位是tri3）
+        self.target_region_name = 'tri0' if player == -1 else 'tri3'
+        self.opponent_target_for_ai = 'tri3' if player == -1 else 'tri0'
     
     def get_opponent(self, player):
-        """获取对手编号"""
+        """获取对手编号（保持1/-1映射）"""
         return -1 if player == 1 else 1
     
     def _to_board_player(self, player):
-        """将1或2转换为1或-1供board使用"""
+        """将1或2转换为1或-1供board使用（保持原有逻辑）"""
         return 1 if player == 1 else -1
     
     def _from_board_player(self, board_player):
-        """将1或-1转换为1或2"""
+        """将1或-1转换为1或2（保持原有逻辑）"""
         return 1 if board_player == 1 else -1
     
     def possible_moves(self, board, player):
-        """
-        生成所有可能的移动
-        """
+        """生成所有可能的移动"""
         board_player = self._to_board_player(player)
         return ChineseCheckersMoves.generate_all_moves(board, board_player)
     
     def find_immediate_win(self, board, player):
-        """
-        查找立即获胜的移动
-        """
+        """查找立即获胜的移动"""
         moves = self.possible_moves(board, player)
         
         for move in moves:
@@ -72,9 +67,7 @@ class Search:
         return None
     
     def check_winner(self, board, player):
-        """
-        检查玩家是否获胜
-        """
+        """检查玩家是否获胜"""
         board_player = self._to_board_player(player)
         target_region = board.player_target_regions[board_player]
         player_pieces = board.get_player_pieces(board_player)
@@ -89,8 +82,14 @@ class Search:
         return True
     
     def is_in_endgame(self, board, player):
-        board_player = self.player  # AI: -1
-        opponent_board_player = -board_player       # 对手: 1
+        """
+        修复后的终局判断逻辑（保留你的核心逻辑，仅修复错误）
+        条件1: 双方棋子的最小距离大于2
+        条件2: AI方有棋子进入对方坑位（tri3）
+        """
+        # 修复1：正确转换为board内部的玩家编号（1/-1），而非直接用self.player
+        board_player = self._to_board_player(self.player)  # AI的内部编号（比如玩家2对应-1）
+        opponent_board_player = -board_player              # 对手的内部编号（比如1）
         
         # 获取双方棋子
         ai_pieces = board.get_player_pieces(board_player)
@@ -99,7 +98,7 @@ class Search:
         if not ai_pieces or not opponent_pieces:
             return False
         
-        # 条件1: 检查最小距离是否大于2
+        # 条件1: 检查最小距离是否大于2（保留你的逻辑，移除冗余判断）
         min_distance = float('inf')
         for ai_piece in ai_pieces:
             for opp_piece in opponent_pieces:
@@ -110,17 +109,10 @@ class Search:
                         # 有棋子距离≤2，不满足终局条件
                         return False
         
-        if min_distance <= self.min_distance_threshold:
-            return False
-        
-        # 条件2: AI方是否有棋子进入对方坑位
-        # AI的目标区域是tri0（东），对手的目标区域是tri3（西）
-        # AI的棋子进入对方坑位 = AI棋子在对面的起始区域tri3
-        opponent_target_for_ai = 'tri3'  # 对于AI（玩家2）来说，对方的坑位是tri3
-        
+        # 条件2: AI方是否有棋子进入对方坑位（保留你的硬编码：tri3）
         ai_pieces_in_opponent_target = 0
         for piece in ai_pieces:
-            if board.get_region(piece) == opponent_target_for_ai:
+            if board.get_region(piece) == self.opponent_target_for_ai:
                 ai_pieces_in_opponent_target += 1
         
         return ai_pieces_in_opponent_target > 0
@@ -139,45 +131,64 @@ class Search:
         return in_target
     
     def order_moves(self, board, moves, player):
-        """对移动进行排序"""
+        """对移动进行排序（增加安全校验）"""
         if not moves:
             return []
         
         scored_moves = []
         
         for move in moves:
-            score = self._evaluate_move(board, move, player)
+            try:
+                score = self._evaluate_move(board, move, player)
+                # 确保score是数值类型
+                score = score if isinstance(score, (int, float)) else 0
+            except Exception:
+                score = 0
             scored_moves.append((score, move))
         
+        # 安全排序：只比较分数
         scored_moves.sort(reverse=True, key=lambda x: x[0])
+        
         max_moves = min(20, len(scored_moves))
         return [move for _, move in scored_moves[:max_moves]]
     
     def _evaluate_move(self, board, move, player):
-        """评估单个移动的质量"""
+        """
+        评估单个移动的质量（核心修复：区分外部进目标区和内部移动）
+        """
         score = 0
         start = move[0]
         end = move[-1]
         
         board_player = self._to_board_player(player)
         target_region = board.player_target_regions[board_player]
-        end_region = board.get_region(end)
+        start_in_target = (board.get_region(start) == target_region)
+        end_in_target = (board.get_region(end) == target_region)
+
+        # 1. 核心修复：差异化奖励
+        if end_in_target:
+            if not start_in_target:
+                # 外部棋子进入目标区：超级高额奖励（优先级别最高）
+                score += 10000
+            else:
+                # 目标区内移动：极低奖励（避免循环）
+                score += 10
+        else:
+            # 2. 外部棋子前进奖励
+            start_region = board.get_region(start)
+            start_dist = self._region_distance_to_target(start_region, player)
+            end_dist = self._region_distance_to_target(board.get_region(end), player)
+            
+            if end_dist < start_dist:
+                score += 500 * (start_dist - end_dist)
         
-        if end_region == target_region:
-            score += 1000
-        
-        start_region = board.get_region(start)
-        start_dist = self._region_distance_to_target(start_region, player)
-        end_dist = self._region_distance_to_target(end_region, player)
-        
-        if end_dist < start_dist:
-            score += 500 * (start_dist - end_dist)
-        
+        # 3. 跳跃奖励（鼓励高效移动）
         if len(move) > 2:
             score += 100 * (len(move) - 1)
         elif not start.is_neighbor(end):
             score += 50
         
+        # 4. 移动后的灵活性（避免死局）
         empty_neighbors = 0
         for direction in range(6):
             neighbor = end.neighbor(direction)
@@ -186,9 +197,10 @@ class Search:
         
         score += empty_neighbors * 10
         
+        # 5. 中心控制奖励（非终局阶段有效）
         center = self._find_center(board)
         end_distance_to_center = end.distance(center)
-        if end_distance_to_center <= 2:
+        if end_distance_to_center <= 2 and not start_in_target:
             score += 50 * (3 - end_distance_to_center)
         
         return score
@@ -268,10 +280,10 @@ class Search:
         pieces_in_target = self.get_pieces_in_target(board, current_player)
         
         if is_endgame:
-            print(f"进入终局阶段！当前有{pieces_in_target}/10个棋子在目标区域")
-            print("使用优化终局搜索...")
+            print(f"进入终局阶段！AI有棋子进入对方坑位，目标区棋子数：{pieces_in_target}/10")
+            print("使用优化终局BFS搜索...")
             
-            best_move = self._optimized_endgame_search(board, current_player, all_moves)
+            best_move = self._optimized_endgame_bfs(board, current_player, all_moves)
             if best_move:
                 print(f"找到终局最优移动")
                 return best_move
@@ -333,562 +345,64 @@ class Search:
         
         return best_move if best_move else (ordered_moves[0] if ordered_moves else None)
     
-       # ==================== 优化终局搜索 - 专门处理最后一个棋子 ====================
-    
-    def _optimized_endgame_search(self, board, player, all_moves):
+    # ==================== 核心修复：终局BFS搜索（强制优先外部棋子） ====================
+    def _optimized_endgame_bfs(self, board, player, all_moves):
         """
-        优化终局搜索：专注让外面的棋子进入目标区域
-        特别优化只剩1-2个棋子在外面的情况
+        优化后的终局BFS搜索：强制优先处理外部棋子
         """
         board_player = self._to_board_player(player)
         target_region = board.player_target_regions[board_player]
         
-        print(f"优化终局搜索：玩家{player}，目标区域{target_region}")
-        
-        # 1. 找出所有不在目标区域的棋子
+        # 1. 找出所有外部棋子（核心：优先处理）
         player_pieces = board.get_player_pieces(board_player)
-        pieces_outside = []
-        pieces_inside = []
+        pieces_outside = [p for p in player_pieces if board.get_region(p) != target_region]
         
-        for piece in player_pieces:
-            if board.get_region(piece) != target_region:
-                pieces_outside.append(piece)
-            else:
-                pieces_inside.append(piece)
+        # 2. 只要有外部棋子，就只考虑外部棋子的移动
+        if pieces_outside:
+            print(f"发现{len(pieces_outside)}个外部棋子，强制优先移动！")
+            # 过滤出所有外部棋子的移动
+            outside_moves = [m for m in all_moves if m[0] in pieces_outside]
+            
+            if outside_moves:
+                # 优先检查是否有外部棋子直接进入目标区的移动
+                enter_moves = [m for m in outside_moves if board.get_region(m[-1]) == target_region]
+                if enter_moves:
+                    print(f"找到{len(enter_moves)}个外部棋子进入目标区的移动，优先选择")
+                    return enter_moves[0]
+                
+                # 对外部移动排序，选前进最多的
+                outside_moves = self.order_moves(board, outside_moves, player)
+                return outside_moves[0] if outside_moves else None
         
-        outside_count = len(pieces_outside)
-        print(f"外面棋子: {outside_count}个，里面棋子: {len(pieces_inside)}个")
+        # 3. 没有外部棋子时，限制内部棋子的循环移动
+        print("所有棋子已在目标区，选择稳定移动（避免循环）")
+        return self._select_stable_move(board, player, all_moves)
+    
+    def _select_stable_move(self, board, player, all_moves):
+        """
+        选择稳定移动：目标区内棋子尽量不动，避免循环
+        """
+        if not all_moves:
+            return None
         
-        # 2. 如果所有棋子都在目标区域内，选择最少破坏性的移动
-        if outside_count == 0:
-            print("所有棋子都在目标区域内，选择稳定移动")
-            return self._select_stable_move(board, player, all_moves)
+        board_player = self._to_board_player(player)
+        target_region = board.player_target_regions[board_player]
         
-        # 3. 如果是只剩1-2个棋子在外面，使用专门的搜索策略
-        if outside_count <= 2:
-            print(f"只剩{outside_count}个棋子在外面，使用专门搜索策略...")
-            return self._final_pieces_search(board, player, pieces_outside, pieces_inside, all_moves)
-        
-        # 4. 一般情况：优先考虑让外面的棋子进入目标区域
-        print("优先搜索外面棋子进入目标区域的移动...")
-        
-        # 4.1 首先检查是否有外面棋子直接进入目标区域的移动
-        outside_entering_moves = []
-        for move in all_moves:
+        # 定义"稳定度"：移动距离越短越稳定，最好是不动（跳棋无不动，选最短）
+        def stability_score(move):
             start = move[0]
             end = move[-1]
-            
-            if board.get_region(start) != target_region:
-                if board.get_region(end) == target_region:
-                    outside_entering_moves.append(move)
+            # 目标区内的移动：距离越短越好
+            if board.get_region(start) == target_region:
+                return start.distance(end)
+            # 外部棋子已处理，此处不会走到
+            return float('inf')
         
-        if outside_entering_moves:
-            print(f"找到{len(outside_entering_moves)}个直接进入目标区域的移动")
-            outside_entering_moves.sort(key=lambda m: len(m))
-            return outside_entering_moves[0]
-        
-        # 4.2 为外面的棋子搜索最短路径
-        print("为外面的棋子搜索最短路径...")
-        
-        best_moves_for_outside = []
-        for piece in pieces_outside:
-            # 使用优化的BFS搜索
-            path = self._optimized_bfs_for_last_piece(board, piece, board_player, target_region)
-            
-            if path and len(path) >= 2:
-                # 查找对应的移动
-                move = self._find_best_move_for_path(board, piece, path, board_player)
-                if move:
-                    score = self._evaluate_outside_move(board, move, player, piece, target_region)
-                    best_moves_for_outside.append((score, move, piece))
-        
-        if best_moves_for_outside:
-            best_moves_for_outside.sort(reverse=True, key=lambda x: x[0])
-            best_score, best_move, best_piece = best_moves_for_outside[0]
-            print(f"选择外面棋子{best_piece}的移动，得分: {best_score:.1f}")
-            return best_move
-        
-        # 5. 如果没有好的外部棋子移动，选择前进方向最好的移动
-        print("选择前进方向最好的移动...")
-        return self._select_best_forward_move(board, player, all_moves)
+        # 按稳定度排序：距离越短越优先
+        sorted_moves = sorted(all_moves, key=stability_score)
+        return sorted_moves[0]
     
-
-    def _select_best_forward_move(self, board, player, all_moves):
-        """选择前进方向最好的移动"""
-        best_move = None
-        best_score = -float('inf')
-        
-        for move in all_moves[:20]:  # 只检查前20个移动
-            score = self._evaluate_move(board, move, player)  # 使用已有的评估函数
-            
-            if score > best_score:
-                best_score = score
-                best_move = move
-        
-        return best_move if best_move else (all_moves[0] if all_moves else None)
-    def _final_pieces_search(self, board, player, pieces_outside, pieces_inside, all_moves):
-        """
-        专门处理最后1-2个棋子的搜索策略
-        """
-        board_player = self._to_board_player(player)
-        target_region = board.player_target_regions[board_player]
-        
-        print(f"专门处理最后{len(pieces_outside)}个棋子的搜索...")
-        
-        # 如果是只剩1个棋子在外面，全力让它进入
-        if len(pieces_outside) == 1:
-            last_piece = pieces_outside[0]
-            print(f"最后一个棋子: {last_piece}")
-            
-            # 1. 检查是否有直接进入目标区域的移动
-            direct_moves = []
-            for move in all_moves:
-                if move[0] == last_piece and board.get_region(move[-1]) == target_region:
-                    direct_moves.append(move)
-            
-            if direct_moves:
-                print("找到直接进入目标区域的移动")
-                direct_moves.sort(key=lambda m: len(m))
-                return direct_moves[0]
-            
-            # 2. 使用A*算法搜索最短路径
-            print("使用A*搜索最短路径...")
-            best_path = self._a_star_search_for_last_piece(board, last_piece, board_player, target_region)
-            
-            if best_path and len(best_path) >= 2:
-                # 找到对应的移动
-                move = self._find_exact_move_for_path(board, last_piece, best_path, board_player)
-                if move:
-                    print(f"找到A*路径: {len(best_path)-1}步")
-                    return move
-            
-            # 3. 如果A*找不到，使用改进的BFS
-            print("使用改进BFS搜索...")
-            bfs_path = self._enhanced_bfs_for_last_piece(board, last_piece, board_player, target_region)
-            
-            if bfs_path and len(bfs_path) >= 2:
-                move = self._find_exact_move_for_path(board, last_piece, bfs_path, board_player)
-                if move:
-                    print(f"找到BFS路径: {len(bfs_path)-1}步")
-                    return move
-        
-        # 对于2个棋子的情况，优先让它们轮流前进
-        elif len(pieces_outside) == 2:
-            print("两个棋子在外面，优化轮流前进...")
-            return self._two_pieces_strategy(board, player, pieces_outside, pieces_inside, all_moves)
-        
-        # 如果上面的方法都失败，使用启发式
-        print("使用启发式选择...")
-        return self._select_best_forward_move(board, player, all_moves)
-    
-    def _a_star_search_for_last_piece(self, board, start_piece, board_player, target_region):
-        """
-        A*算法搜索最短路径（最后一个棋子专用）
-        """
-        from queue import PriorityQueue
-        
-        # 优先级队列：(f_score, g_score, position, path)
-        pq = PriorityQueue()
-        g_score = {start_piece: 0}  # 从起点到当前点的实际代价
-        f_score = {start_piece: self._heuristic(start_piece, target_region)}  # 估计总代价
-        
-        pq.put((f_score[start_piece], 0, start_piece, [start_piece]))
-        
-        visited = set()
-        
-        while not pq.empty():
-            current_f, current_g, current_pos, path = pq.get()
-            
-            # 如果已经在目标区域，返回路径
-            if board.get_region(current_pos) == target_region:
-                return path
-            
-            if current_pos in visited:
-                continue
-            visited.add(current_pos)
-            
-            # 获取所有可能的下一步
-            next_positions = self._get_all_possible_moves_for_position(board, current_pos, board_player)
-            
-            for next_pos in next_positions:
-                if next_pos in visited:
-                    continue
-                
-                # 计算新的g_score（每步代价为1）
-                tentative_g = current_g + 1
-                
-                if next_pos not in g_score or tentative_g < g_score[next_pos]:
-                    # 找到更好的路径
-                    new_path = path + [next_pos]
-                    g_score[next_pos] = tentative_g
-                    h = self._heuristic(next_pos, target_region)
-                    f_score[next_pos] = tentative_g + h
-                    
-                    pq.put((f_score[next_pos], tentative_g, next_pos, new_path))
-        
-        return None
-    
-    def _heuristic(self, position, target_region):
-        """
-        A*启发式函数：估计到目标区域的距离
-        """
-        # 简单启发式：基于区域距离
-        region_order = ['tri0', 'tri5', 'hex', 'tri4', 'tri3', 'tri2', 'tri1']
-        
-        # 这里需要知道position所在的区域，但position是CubeCoord
-        # 我们需要从board获取区域信息，但这里没有board参数
-        # 修改：返回一个保守估计
-        return 0  # 暂时返回0，让A*退化为BFS
-    
-    def _get_all_possible_moves_for_position(self, board, position, board_player):
-        """
-        获取某个位置的所有可能移动目标位置
-        """
-        positions = []
-        
-        # 获取所有移动
-        moves = ChineseCheckersMoves.generate_all_moves(board, board_player)
-        
-        for move in moves:
-            if move[0] == position:
-                positions.append(move[-1])
-        
-        return positions
-    
-    def _enhanced_bfs_for_last_piece(self, board, start_piece, board_player, target_region):
-        """
-        增强的BFS搜索，专门为最后一个棋子设计
-        """
-        queue = deque()
-        visited = {}
-        parent = {}
-        
-        queue.append((start_piece, 0))  # (位置, 步数)
-        visited[start_piece] = 0
-        parent[start_piece] = None
-        
-        found_target = None
-        min_steps = float('inf')
-        
-        max_steps = 20  # 最大搜索步数
-        
-        while queue:
-            current_pos, steps = queue.popleft()
-            
-            # 如果已经到达目标区域
-            if board.get_region(current_pos) == target_region:
-                if steps < min_steps:
-                    min_steps = steps
-                    found_target = current_pos
-                continue
-            
-            if steps >= max_steps:
-                continue
-            
-            # 获取所有可能的下一步
-            next_positions = self._get_smart_moves_for_last_piece(board, current_pos, board_player, target_region, visited)
-            
-            for next_pos in next_positions:
-                if next_pos not in visited or steps + 1 < visited[next_pos]:
-                    visited[next_pos] = steps + 1
-                    parent[next_pos] = current_pos
-                    queue.append((next_pos, steps + 1))
-        
-        # 重构路径
-        if found_target:
-            path = []
-            current = found_target
-            while current is not None:
-                path.append(current)
-                current = parent[current]
-            path.reverse()
-            return path
-        
-        return None
-    
-    def _get_smart_moves_for_last_piece(self, board, position, board_player, target_region, visited):
-        """
-        为最后一个棋子获取智能移动选项
-        优先考虑向目标区域前进的移动
-        """
-        positions = []
-        
-        # 获取所有移动
-        moves = ChineseCheckersMoves.generate_all_moves(board, board_player)
-        
-        for move in moves:
-            if move[0] == position:
-                end_pos = move[-1]
-                
-                # 跳过已访问的位置（除非能更快到达）
-                if end_pos in visited and len(move) >= visited.get(end_pos, 0):
-                    continue
-                
-                positions.append(end_pos)
-        
-        # 按启发式排序：越靠近目标区域越好
-        positions.sort(key=lambda pos: self._distance_to_target_region(pos, board, target_region))
-        
-        return positions[:8]  # 只考虑前8个最好的选择
-    
-    def _distance_to_target_region(self, position, board, target_region):
-        """
-        计算位置到目标区域的距离
-        """
-        current_region = board.get_region(position)
-        
-        if current_region == target_region:
-            return 0
-        
-        region_order = ['tri0', 'tri5', 'hex', 'tri4', 'tri3', 'tri2', 'tri1']
-        
-        try:
-            current_idx = region_order.index(current_region)
-            target_idx = region_order.index(target_region)
-            return abs(current_idx - target_idx)
-        except ValueError:
-            return 10
-    
-    def _find_exact_move_for_path(self, board, start_piece, path, board_player):
-        """
-        为路径查找确切的移动序列
-        尝试找到从起点到终点的完整移动
-        """
-        if len(path) < 2:
-            return None
-        
-        # 查找单步移动
-        for i in range(len(path) - 1):
-            start = path[i]
-            end = path[i + 1]
-            
-            # 查找从start到end的移动
-            moves = ChineseCheckersMoves.generate_all_moves(board, board_player)
-            for move in moves:
-                if move[0] == start and move[-1] == end:
-                    # 如果是路径的最后一步，返回这个移动
-                    if end == path[-1]:
-                        return move
-                    # 否则继续查找
-                    break
-        
-        # 如果找不到完整路径，返回第一步
-        if len(path) >= 2:
-            first_end = path[1]
-            moves = ChineseCheckersMoves.generate_all_moves(board, board_player)
-            for move in moves:
-                if move[0] == start_piece and move[-1] == first_end:
-                    return move
-        
-        return None
-    
-    def _two_pieces_strategy(self, board, player, pieces_outside, pieces_inside, all_moves):
-        """
-        两个棋子在外面的策略
-        """
-        board_player = self._to_board_player(player)
-        target_region = board.player_target_regions[board_player]
-        
-        # 策略1：优先让更接近目标区域的棋子前进
-        piece1, piece2 = pieces_outside[0], pieces_outside[1]
-        
-        # 计算每个棋子到目标区域的距离
-        dist1 = self._distance_to_target_region(piece1, board, target_region)
-        dist2 = self._distance_to_target_region(piece2, board, target_region)
-        
-        # 选择距离更近的棋子优先移动
-        if dist1 <= dist2:
-            primary_piece = piece1
-            secondary_piece = piece2
-        else:
-            primary_piece = piece2
-            secondary_piece = piece1
-        
-        print(f"优先移动棋子{primary_piece}（距离{min(dist1, dist2)}）")
-        
-        # 查找主要棋子的移动
-        primary_moves = []
-        for move in all_moves:
-            if move[0] == primary_piece:
-                primary_moves.append(move)
-        
-        if primary_moves:
-            # 优先选择能进入目标区域的移动
-            for move in primary_moves:
-                if board.get_region(move[-1]) == target_region:
-                    return move
-            
-            # 其次选择前进距离最大的移动
-            primary_moves.sort(
-                key=lambda m: self._calculate_advancement(m[0], m[-1], board, player),
-                reverse=True
-            )
-            return primary_moves[0]
-        
-        # 如果主要棋子没有移动，尝试次要棋子
-        secondary_moves = []
-        for move in all_moves:
-            if move[0] == secondary_piece:
-                secondary_moves.append(move)
-        
-        if secondary_moves:
-            secondary_moves.sort(
-                key=lambda m: self._calculate_advancement(m[0], m[-1], board, player),
-                reverse=True
-            )
-            return secondary_moves[0]
-        
-        # 如果都没有，返回第一个移动
-        return all_moves[0] if all_moves else None
-    
-    def _calculate_advancement(self, start, end, board, player):
-        """计算前进程度"""
-        board_player = self._to_board_player(player)
-        target_region = board.player_target_regions[board_player]
-        
-        start_region = board.get_region(start)
-        end_region = board.get_region(end)
-        
-        if end_region == target_region:
-            return 1000  # 进入目标区域
-        
-        region_order = ['tri0', 'tri5', 'hex', 'tri4', 'tri3', 'tri2', 'tri1']
-        
-        try:
-            start_idx = region_order.index(start_region)
-            end_idx = region_order.index(end_region)
-            target_idx = region_order.index(target_region)
-            
-            # 计算前进距离
-            start_dist = abs(start_idx - target_idx)
-            end_dist = abs(end_idx - target_idx)
-            
-            return start_dist - end_dist  # 正值表示前进
-        except ValueError:
-            return 0
-    
-    def _optimized_bfs_for_last_piece(self, board, start_piece, board_player, target_region):
-        """
-        优化BFS搜索，考虑跳跃移动
-        """
-        # 使用队列存储（位置，路径，步数）
-        queue = deque()
-        visited = {}
-        
-        queue.append((start_piece, [start_piece], 0))
-        visited[start_piece] = 0
-        
-        best_path = None
-        min_steps = float('inf')
-        
-        while queue:
-            current_pos, path, steps = queue.popleft()
-            
-            # 如果到达目标区域，记录最佳路径
-            if board.get_region(current_pos) == target_region:
-                if steps < min_steps:
-                    min_steps = steps
-                    best_path = path
-                continue
-            
-            if steps >= 15:  # 限制搜索深度
-                continue
-            
-            # 获取所有可能的移动
-            moves = self._get_moves_for_last_piece_bfs(board, current_pos, board_player)
-            
-            for move in moves:
-                next_pos = move[-1]
-                next_steps = steps + 1
-                
-                # 如果没访问过或者找到更短路径
-                if next_pos not in visited or next_steps < visited[next_pos]:
-                    visited[next_pos] = next_steps
-                    new_path = path + [next_pos]
-                    queue.append((next_pos, new_path, next_steps))
-        
-        return best_path
-    
-    def _get_moves_for_last_piece_bfs(self, board, position, board_player):
-        """
-        获取BFS搜索中的移动选项
-        """
-        moves = []
-        
-        # 单步移动
-        for direction in range(6):
-            neighbor = position.neighbor(direction)
-            if board.is_valid_cell(neighbor) and board.is_empty(neighbor):
-                moves.append([position, neighbor])
-        
-        # 跳跃移动
-        all_moves = ChineseCheckersMoves.generate_all_moves(board, board_player)
-        for move in all_moves:
-            if move[0] == position:
-                moves.append(move)
-        
-        return moves
-    
-    def _find_best_move_for_path(self, board, start_piece, path, board_player):
-        """
-        为路径查找最佳移动
-        """
-        if not path or len(path) < 2:
-            return None
-        
-        # 尝试找到从起点到终点的移动
-        end_pos = path[-1]
-        
-        moves = ChineseCheckersMoves.generate_all_moves(board, board_player)
-        for move in moves:
-            if move[0] == start_piece and move[-1] == end_pos:
-                return move
-        
-        # 如果找不到，尝试第一步
-        if len(path) >= 2:
-            first_end = path[1]
-            for move in moves:
-                if move[0] == start_piece and move[-1] == first_end:
-                    return move
-        
-        return None
-    
-    def _evaluate_outside_move(self, board, move, player, piece, target_region):
-        """
-        评估外面棋子移动的质量
-        """
-        score = 0
-        start = move[0]
-        end = move[-1]
-        
-        # 验证起点是否正确
-        if start != piece:
-            return -10000
-        
-        # 是否进入目标区域
-        if board.get_region(end) == target_region:
-            score += 10000
-        
-        # 前进距离
-        start_region = board.get_region(start)
-        end_region = board.get_region(end)
-        
-        if start_region != target_region and end_region == target_region:
-            # 从外面进入目标区域，额外奖励
-            score += 5000
-        
-        # 移动效率
-        steps = len(move) - 1
-        if steps == 1:
-            score += 500  # 单步效率高
-        elif steps <= 3:
-            score += 300
-        else:
-            score -= (steps - 3) * 100
-        
-        return score
-    # ==================== Alpha-Beta搜索核心 ====================
-    
+    # ==================== Alpha-Beta搜索核心（保持不变） ====================
     def _alpha_beta(self, board, depth, is_maximizing, alpha, beta, player):
         """Alpha-Beta剪枝核心算法"""
         self.nodes_evaluated += 1
@@ -950,19 +464,9 @@ class Search:
     
     def evaluate_board(self, board):
         """评估棋盘状态"""
-        if self.eva is None:
-            return 0
         
-        board_player = self._to_board_player(self.player)
+        return self._simple_evaluate(board, self.player)
         
-        if hasattr(self.eva, 'evaluate'):
-            if EVALUATOR_AVAILABLE:
-                return self.eva.evaluate(board.cells.copy(), board_player)
-            else:
-                # 使用简单评估
-                return self._simple_evaluate(board, self.player)
-        
-        return 0
     
     def _simple_evaluate(self, board, player):
         """简单棋盘评估"""
@@ -992,3 +496,50 @@ class Search:
                 score += 20 * (4 - dist)
         
         return score
+    
+    # ==================== 阻挡移动 ====================
+    def _find_blocking_moves(self, board, opponent_win_move, player):
+        """
+        查找阻止对手获胜的移动
+        """
+        blocking_moves = []
+        target = opponent_win_move[-1]
+        board_player = self._to_board_player(player)
+        
+        # 尝试占领对手的目标位置
+        if board.is_empty(target):
+            for piece in board.get_player_pieces(board_player):
+                moves = self._find_path_to_target(board, piece, target)
+                blocking_moves.extend(moves)
+        
+        # 尝试切断对手的跳跃路径
+        if len(opponent_win_move) > 1:
+            for i in range(1, len(opponent_win_move)):
+                blocking_point = opponent_win_move[i]
+                if board.is_empty(blocking_point):
+                    for piece in board.get_player_pieces(board_player):
+                        moves = self._find_path_to_target(board, piece, blocking_point)
+                        blocking_moves.extend(moves)
+        
+        return list(set(blocking_moves))  # 去重
+    
+    def _find_path_to_target(self, board, start, target):
+        """
+        查找从起点到目标的路径
+        """
+        moves = []
+        # 检查单步移动
+        if start.is_neighbor(target) and board.is_empty(target):
+            moves.append([start, target])
+        
+        # 检查跳跃移动
+        piece_owner = board.get_piece(start)
+        if piece_owner != 0:
+            # 转换为外部玩家编号（1/2）
+            player_num = self._from_board_player(piece_owner)
+            all_moves = self.possible_moves(board, player_num)
+            for move in all_moves:
+                if move[0] == start and move[-1] == target:
+                    moves.append(move)
+        
+        return moves
