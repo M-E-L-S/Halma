@@ -6,7 +6,7 @@ from collections import deque
 from src.core.board import ChineseCheckersBoard, CubeCoord
 from src.core.moves import ChineseCheckersMoves
 from .evaluator import ChineseCheckersEvaluator
-
+import time
 class Search:
     def __init__(self, player, depth=3):
         self.player = player  
