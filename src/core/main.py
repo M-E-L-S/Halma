@@ -10,6 +10,7 @@ class ChineseCheckersGUI:
     """中国跳棋图形界面"""
 
     def __init__(self, board=None):
+        self.all_moves = None
         pygame.init()
 
         # 棋盘参数
@@ -628,6 +629,7 @@ class ChineseCheckersGUI:
 
             # 显示移动信息
             move_info = f"移动了 {len(move) - 1} 步"
+            self.all_moves = self.moves_gen.generate_all_moves(self.board, 1)
             if len(move) > 2:
                 move_info += f" (包含{len(move) - 2}次跳跃)"
             self.show_message(move_info)
