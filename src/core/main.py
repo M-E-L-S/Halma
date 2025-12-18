@@ -17,7 +17,7 @@ import pygame
 import sys
 import math
 import os
-
+import time
 from src.core.board import ChineseCheckersBoard, CubeCoord
 from src.ai.tradition_serach  import Search
 
@@ -855,6 +855,8 @@ def main():
     print("- R: 重新开始游戏 (快捷键)")
     print("- C: 居中视角 (快捷键)")
     print()
+
+    
 
     # 创建并运行游戏
     game = ChineseCheckersGUI()
