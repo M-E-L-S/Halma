@@ -22,7 +22,7 @@ class Search:
         
     def get_opponent(self, player):
         """获取对手编号"""
-        return 2 if player == 1 else 1
+        return -1 if player == 1 else 1
     
     def possible_moves(self, board, player):
         """
@@ -36,7 +36,7 @@ class Search:
             所有合法移动列表
         """
         # 将1转换为1，2转换为-1（如果移动生成器期望-1）
-        move_player = 1 if player == 1 else 2
+        move_player = 1 if player == 1 else -1
         return ChineseCheckersMoves.generate_all_moves(board, move_player)
     
     def find_immediate_win(self, board, player):
@@ -51,7 +51,7 @@ class Search:
             立即获胜的移动，如果没有返回None
         """
         # 转换玩家编号用于移动生成
-        move_player = 1 if player == 1 else 2
+        move_player = 1 if player == 1 else -1
         moves = self.possible_moves(board, player)
         
         for move in moves:
@@ -83,7 +83,7 @@ class Search:
             bool: 是否获胜
         """
         # 转换玩家编号用于获取目标区域
-        board_player = 1 if player == 1 else 2
+        board_player = 1 if player == 1 else -1
         target_region = board.player_target_regions[board_player]
         
         # 获取玩家棋子
@@ -144,7 +144,7 @@ class Search:
         end = move[-1]
         
         # 转换玩家编号用于获取目标区域
-        board_player = 1 if player == 1 else 2
+        board_player = 1 if player == 1 else -1
         
         # 1. 目标区域奖励
         target_region = board.player_target_regions[board_player]
@@ -349,7 +349,7 @@ class Search:
             return -10000 - depth * 100
         
         # 生成当前玩家的所有合法移动
-        move_player = 1 if player == 1 else 2
+        move_player = 1 if player == 1 else -1
         valid_moves = ChineseCheckersMoves.generate_all_moves(board, move_player)
         
         if not valid_moves:

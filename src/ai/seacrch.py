@@ -17,7 +17,7 @@ class Search:
         self.early_move_factor = 12  # 早期搜索分支数（深度较大时减少）
     
     def get_opponent(self, player):
-        return 2 if player == 1 else 1
+        return -1 if player == 1 else 1
     
     def possible_moves(self, board, player):
         move_player = 1 if player == 1 else -1
@@ -33,7 +33,7 @@ class Search:
         return None
     
     def check_winner(self, board, player):
-        board_player = 1 if player == 1 else 2
+        board_player = 1 if player == 1 else -1
         target_region = board.player_target_regions[board_player]
         player_pieces = board.get_player_pieces(board_player)
         
@@ -87,7 +87,7 @@ class Search:
         end = move[-1]
         
         # 转换玩家编号
-        board_player = 1 if player == 1 else 2
+        board_player = 1 if player == 1 else -1
         
         # 1. 目标区域奖励（最重要）
         target_region = board.player_target_regions[board_player]
@@ -225,7 +225,7 @@ class Search:
             return -10000 - depth * 100
         
         # 生成当前玩家的所有合法移动
-        board_player = 1 if player == 1 else 2
+        board_player = 1 if player == 1 else -1
         valid_moves = ChineseCheckersMoves.generate_all_moves(board, board_player)
         
         if not valid_moves:
@@ -292,7 +292,7 @@ class Search:
         return count
     
     def _calculate_progress(self, board, player):
-        board_player = 1 if player == 1 else 2
+        board_player = 1 if player == 1 else -1
         target_region = board.player_target_regions[board_player]
         player_pieces = board.get_player_pieces(board_player)
         
@@ -323,14 +323,14 @@ class Search:
         ai_score = 0
         opponent_score = 0
         
-        board_player = 1 if self.player == 1 else 2
+        board_player = 1 if self.player == 1 else -1
         for piece in board.get_player_pieces(board_player):
             distance = piece.distance(center)
             if distance <= 3:
                 ai_score += (4 - distance)
         
         opponent = self.get_opponent(self.player)
-        board_opponent = 1 if opponent == 1 else 2
+        board_opponent = 1 if opponent == 1 else -1
         for piece in board.get_player_pieces(board_opponent):
             distance = piece.distance(center)
             if distance <= 3:
@@ -354,18 +354,18 @@ class Search:
             
             return total_connections / 2
         
-        board_player = 1 if self.player == 1 else 2
+        board_player = 1 if self.player == 1 else -1
         ai_connections = calculate_for_player(board.get_player_pieces(board_player))
         
         opponent = self.get_opponent(self.player)
-        board_opponent = 1 if opponent == 1 else 2
+        board_opponent = 1 if opponent == 1 else -1
         opponent_connections = calculate_for_player(board.get_player_pieces(board_opponent))
         
         return ai_connections - opponent_connections
     
     def _calculate_safety(self, board, player):
         """计算棋子安全性（避免孤立棋子）"""
-        board_player = 1 if player == 1 else 2
+        board_player = 1 if player == 1 else -1
         player_pieces = board.get_player_pieces(board_player)
         
         safe_score = 0
