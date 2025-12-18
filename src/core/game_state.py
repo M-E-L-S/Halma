@@ -7,7 +7,7 @@ class ChineseCheckersGame:
 
     def __init__(self, board=None):
         self.board = board or ChineseCheckersBoard()
-        self.current_player = 1  # 玩家1先走
+        self.current_player = 1 # 玩家1先走
         self.move_history = []
         self.game_over = False
         self.winner = None

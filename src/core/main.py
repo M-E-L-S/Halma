@@ -24,6 +24,7 @@ class ChineseCheckersGUI:
     """中国跳棋图形界面"""
 
     def __init__(self, board=None):
+        self.all_moves = None
         pygame.init()
 
         # 棋盘参数
@@ -126,7 +127,7 @@ class ChineseCheckersGUI:
         self.use_ai = False  # 是否启用AI
         self.ai_thinking = False  # AI是否正在思考
 
-    def init_ai(self, player_id=-1, depth=1):
+    def init_ai(self, player_id, depth=5):
         """初始化AI玩家"""
         try:
             from src.ai.ai_agent import AIPlayer
@@ -170,6 +171,7 @@ class ChineseCheckersGUI:
             # 获取游戏状态
             from game_state import ChineseCheckersGame
             game_state_obj = ChineseCheckersGame(self.board)
+            game_state_obj.current_player = self.current_player
             game_state = game_state_obj.get_state()
 
             # 获取AI移动
@@ -642,6 +644,7 @@ class ChineseCheckersGUI:
 
             # 显示移动信息
             move_info = f"移动了 {len(move) - 1} 步"
+            self.all_moves = self.moves_gen.generate_all_moves(self.board, 1)
             if len(move) > 2:
                 move_info += f" (包含{len(move) - 2}次跳跃)"
             self.show_message(move_info)
