@@ -8,10 +8,10 @@ class ChineseCheckersMoves:
     def remove_duplicate_moves(all_moves):
         """删除重复的移动路径 - 只比较起点和终点"""
         if not all_moves:
-        #    print("调试: 输入为空列表")
+            print("调试: 输入为空列表")
             return []
 
-     #   print(f"调试: 开始处理 {len(all_moves)} 条移动")
+        print(f"调试: 开始处理 {len(all_moves)} 条移动")
 
         unique_moves = []
         seen_keys = set()  # 存储已经见过的起点-终点对
@@ -19,7 +19,7 @@ class ChineseCheckersMoves:
 
         for i, move in enumerate(all_moves):
             if len(move) < 2:
-           #     print(f"调试: 第{i}条移动无效，长度={len(move)}")
+                print(f"调试: 第{i}条移动无效，长度={len(move)}")
                 continue  # 跳过无效的移动
 
             start = move[0]
@@ -29,28 +29,28 @@ class ChineseCheckersMoves:
             key = (start.q, start.r, start.s, end.q, end.r, end.s)
 
             # 调试信息
-          #  start_str = f"({start.q},{start.r},{start.s})"
-       #     end_str = f"({end.q},{end.r},{end.s})"
-         #   move_type = "单步" if len(move) == 2 else f"跳跃({len(move) - 1}步)"
+            start_str = f"({start.q},{start.r},{start.s})"
+            end_str = f"({end.q},{end.r},{end.s})"
+            move_type = "单步" if len(move) == 2 else f"跳跃({len(move) - 1}步)"
 
             if key not in seen_keys:
-            #    print(f"调试: 第{i}条移动 - {move_type} {start_str} -> {end_str} [新]")
+                print(f"调试: 第{i}条移动 - {move_type} {start_str} -> {end_str} [新]")
                 seen_keys.add(key)
                 unique_moves.append(move)
             else:
-          #      print(f"调试: 第{i}条移动 - {move_type} {start_str} -> {end_str} [重复]")
+                print(f"调试: 第{i}条移动 - {move_type} {start_str} -> {end_str} [重复]")
                 duplicate_count += 1
 
-      #  print(f"调试: 处理完成，原始{len(all_moves)}条，去重后{len(unique_moves)}条")
-       # print(f"调试: 删除了 {duplicate_count} 条重复移动")
+        print(f"调试: 处理完成，原始{len(all_moves)}条，去重后{len(unique_moves)}条")
+        print(f"调试: 删除了 {duplicate_count} 条重复移动")
 
         # 显示最终的唯一移动
-      #  print("\n调试: 最终的唯一移动:")
+        print("\n调试: 最终的唯一移动:")
         for i, move in enumerate(unique_moves):
             start = move[0]
             end = move[-1]
             move_type = "单步" if len(move) == 2 else f"跳跃({len(move) - 1}步)"
-      #      print(f"  {i}: {move_type} ({start.q},{start.r},{start.s}) -> ({end.q},{end.r},{end.s})")
+            print(f"  {i}: {move_type} ({start.q},{start.r},{start.s}) -> ({end.q},{end.r},{end.s})")
 
         return unique_moves
 
@@ -67,7 +67,7 @@ class ChineseCheckersMoves:
         for move in result:
             coord = move[0]
             neighbor = move[-1]
-       #     print("move:", coord.q, coord.r, coord.s, "to", neighbor.q, neighbor.r, neighbor.s)
+            print("move:", coord.q, coord.r, coord.s, "to", neighbor.q, neighbor.r, neighbor.s)
         return result
 
 
@@ -88,7 +88,7 @@ class ChineseCheckersMoves:
         for move in moves:
             coord = move[0]
             neighbor = move[-1]
-      #      print("amove:", coord.q, coord.r, coord.s, "to", neighbor.q, neighbor.r, neighbor.s)
+            print("amove:", coord.q, coord.r, coord.s, "to", neighbor.q, neighbor.r, neighbor.s)
         return moves
 
     @staticmethod
@@ -100,7 +100,7 @@ class ChineseCheckersMoves:
             neighbor = coord.neighbor(direction)
             if board.is_valid_cell(neighbor) and board.is_empty(neighbor):
                 moves.append([coord, neighbor])
-       #         print("single_move:",coord.q,coord.r,coord.s,"to",neighbor.q,neighbor.r,neighbor.s)
+                print("single_move:",coord.q,coord.r,coord.s,"to",neighbor.q,neighbor.r,neighbor.s)
 
         return moves
 
@@ -128,7 +128,7 @@ class ChineseCheckersMoves:
         for move in moves:
             coord = move[0]
             neighbor = move[1]
-     #       print("jump_move:", coord.q, coord.r, coord.s, "to", neighbor.q, neighbor.r, neighbor.s)
+            print("jump_move:", coord.q, coord.r, coord.s, "to", neighbor.q, neighbor.r, neighbor.s)
         return moves
 
     @staticmethod

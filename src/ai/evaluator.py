@@ -39,8 +39,8 @@ class EvaluationWeights:
         # 进度权重
         self.PROGRESS_WEIGHT = 1.5
 
-        self.LEFT_START_WEIGHT = 10.0  # 离开起始区域的奖励
-        self.COMPLETION_WEIGHT = 40.0  # 完成目标的奖励
+        self.LEFT_START_WEIGHT = 5.0  # 离开起始区域的奖励
+        self.COMPLETION_WEIGHT = 5.0  # 完成目标的奖励
 
 
 class ChineseCheckersEvaluator:
@@ -56,9 +56,10 @@ class ChineseCheckersEvaluator:
 
     def _initialize_from_board(self):
         """从棋盘对象初始化区域信息"""
+        # 获取所有单元格
         self.all_cells = self.board.get_all_cells()
 
-        # 定义目标区域
+        # 定义目标区域（根据棋盘设置）
         self.player1_target_cells = self._get_target_cells(Player.PLAYER1.value)
         self.player2_target_cells = self._get_target_cells(Player.PLAYER2.value)
 
@@ -91,6 +92,7 @@ class ChineseCheckersEvaluator:
         """
         self.board_state = _board_state
 
+        # 提取棋子位置
         player1_positions = [pos for pos, player in self.board_state.items()
                            if player == Player.PLAYER1.value]
         player2_positions = [pos for pos, player in self.board_state.items()
@@ -110,22 +112,22 @@ class ChineseCheckersEvaluator:
         # 计算各项评估指标
         evaluation = 0.0
 
-        # 1. 距离评估（保证前进）
+        # 1. 距离评估（到目标区域的距离）
         distance_score = self._evaluate_distance(
             my_positions, my_target, opp_positions, opp_target)
         evaluation += distance_score
 
-        # 2. 阵型评估（惩罚孤立棋子）
+        # 2. 阵型评估
         formation_score = self._evaluate_formation(
             my_positions, opp_positions)
         evaluation += formation_score
 
-        # 3. 连通性评估（利用连跳）
+        # 3. 连通性评估
         connectivity_score = self._evaluate_connectivity(
             my_positions, opp_positions)
         evaluation += connectivity_score
 
-        # 4. 进度评估（促进开局和结束）
+        # 4. 进度评估
         progress_score = self._evaluate_progress(
             my_positions, my_target, opp_positions, opp_target)
         evaluation += progress_score
@@ -274,6 +276,7 @@ class ChineseCheckersEvaluator:
         用于搜索树的浅层评估，计算速度更快
         只考虑关键因素：距离、进度和位置价值
         """
+        # 提取棋子位置
         player1_positions = [pos for pos, player in board_state.items()
                            if player == Player.PLAYER1.value]
         player2_positions = [pos for pos, player in board_state.items()
