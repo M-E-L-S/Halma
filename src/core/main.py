@@ -1,4 +1,18 @@
+import sys
+import os
 
+# 获取当前文件所在目录 (src/core/)
+current_dir = os.path.dirname(os.path.abspath(__file__))
+# 获取src目录
+src_dir = os.path.dirname(current_dir)  # src
+# 获取项目根目录 (Halma/)
+project_root = os.path.dirname(src_dir)  # Halma
+
+# 添加src目录到路径（这样可以直接从src导入）
+sys.path.insert(0, src_dir)
+
+# 或者添加项目根目录到路径（这样可以用src.core.module_name导入）
+sys.path.insert(0, project_root)
 import pygame
 import sys
 import math
@@ -112,7 +126,7 @@ class ChineseCheckersGUI:
         self.use_ai = False  # 是否启用AI
         self.ai_thinking = False  # AI是否正在思考
 
-    def init_ai(self, player_id, depth=3):
+    def init_ai(self, player_id=-1, depth=1):
         """初始化AI玩家"""
         try:
             from src.ai.ai_agent import AIPlayer

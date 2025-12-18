@@ -15,14 +15,22 @@ class Search:
             depth: 搜索深度
         """
         self.eva = None
-        self.player = player
+        self.player = player  # 保持1或2格式
         self.depth = depth
         self.nodes_evaluated = 0
         self.pruning_count = 0
         
     def get_opponent(self, player):
         """获取对手编号"""
-        return 2 if player == 1 else 1
+        return 2 if player == 1 else 1  # 修正：返回1或2
+    
+    def _to_board_player(self, player):
+        """将1或2转换为1或-1供board使用"""
+        return 1 if player == 1 else -1
+    
+    def _from_board_player(self, board_player):
+        """将1或-1转换为1或2"""
+        return 1 if board_player == 1 else 2
     
     def possible_moves(self, board, player):
         """
@@ -35,9 +43,9 @@ class Search:
         返回:
             所有合法移动列表
         """
-        # 将1转换为1，2转换为-1（如果移动生成器期望-1）
-        move_player = 1 if player == 1 else 2
-        return ChineseCheckersMoves.generate_all_moves(board, move_player)
+        # 转换为board格式
+        board_player = self._to_board_player(player)
+        return ChineseCheckersMoves.generate_all_moves(board, board_player)
     
     def find_immediate_win(self, board, player):
         """
@@ -50,23 +58,14 @@ class Search:
         返回:
             立即获胜的移动，如果没有返回None
         """
-        # 转换玩家编号用于移动生成
-        move_player = 1 if player == 1 else 2
         moves = self.possible_moves(board, player)
         
         for move in moves:
-            # 模拟移动
-            test_board = board.copy()
-            start = move[0]
-            end = move[-1]
+            # 使用正确的移动应用方法
+            new_board = ChineseCheckersMoves.apply_move(board, move)
             
-            # 执行移动
-            piece = test_board.get_piece(start)
-            test_board.set_piece(start, 0)
-            test_board.set_piece(end, piece)
-            
-            # 检查是否获胜（使用1和2编号）
-            if self.check_winner(test_board, player):
+            # 检查是否获胜
+            if self.check_winner(new_board, player):
                 return move
         
         return None
@@ -83,7 +82,7 @@ class Search:
             bool: 是否获胜
         """
         # 转换玩家编号用于获取目标区域
-        board_player = 1 if player == 1 else 2
+        board_player = self._to_board_player(player)
         target_region = board.player_target_regions[board_player]
         
         # 获取玩家棋子
@@ -144,7 +143,7 @@ class Search:
         end = move[-1]
         
         # 转换玩家编号用于获取目标区域
-        board_player = 1 if player == 1 else 2
+        board_player = self._to_board_player(player)
         
         # 1. 目标区域奖励
         target_region = board.player_target_regions[board_player]
@@ -234,11 +233,13 @@ class Search:
             最佳移动
         """
         print(f"AI 玩家{self.player} 开始思考...")
-        self.eva = ChineseCheckersEvaluator(game_state['board'])
         
         # 获取棋盘状态
         board = game_state['board']
-        current_player = game_state['current_player']
+        current_player = game_state['current_player']  # 来自game_state
+        
+        # 初始化评估器
+        self.eva = ChineseCheckersEvaluator(game_state['board'])
         
         # 重置计数
         self.nodes_evaluated = 0
@@ -286,31 +287,25 @@ class Search:
         print(f"搜索深度: {self.depth}, 移动数: {len(ordered_moves)}")
         
         for i, move in enumerate(ordered_moves[:15]):  # 限制搜索分支
-            # 模拟移动
-            test_board = board.copy()
-            start = move[0]
-            end = move[-1]
-            piece = test_board.get_piece(start)
-            test_board.set_piece(start, 0)
-            test_board.set_piece(end, piece)
+            # 使用正确的移动应用方法
+            new_board = ChineseCheckersMoves.apply_move(board, move)
             
             # 递归搜索
-            if current_player == self.player:
-                score = self._alpha_beta(test_board, self.depth - 1, False, 
-                                        alpha, beta, opponent)
-            else:
-                score = self._alpha_beta(test_board, self.depth - 1, True,
-                                        alpha, beta, current_player)
+            score = self._alpha_beta(
+                new_board, 
+                self.depth - 1, 
+                False,  # 对手回合
+                alpha, 
+                beta, 
+                opponent  # 下一个玩家是对手
+            )
             
             if score > best_score:
                 best_score = score
                 best_move = move
             
             # Alpha-Beta剪枝
-            if current_player == self.player:
-                alpha = max(alpha, score)
-            else:
-                beta = min(beta, score)
+            alpha = max(alpha, score)
             
             if beta <= alpha:
                 self.pruning_count += 1
@@ -349,8 +344,8 @@ class Search:
             return -10000 - depth * 100
         
         # 生成当前玩家的所有合法移动
-        move_player = 1 if player == 1 else 2
-        valid_moves = ChineseCheckersMoves.generate_all_moves(board, move_player)
+        board_player = self._to_board_player(player)
+        valid_moves = ChineseCheckersMoves.generate_all_moves(board, board_player)
         
         if not valid_moves:
             # 如果没有合法移动，返回评估值
@@ -363,18 +358,13 @@ class Search:
             max_eval = -float('inf')
             
             for move in ordered_moves[:12]:  # 限制分支
-                # 模拟移动
-                test_board = board.copy()
-                start = move[0]
-                end = move[-1]
-                piece = test_board.get_piece(start)
-                test_board.set_piece(start, 0)
-                test_board.set_piece(end, piece)
+                # 使用正确的移动应用方法
+                new_board = ChineseCheckersMoves.apply_move(board, move)
                 
                 # 对手回合
                 next_player = self.get_opponent(player)
                 eval_score = self._alpha_beta(
-                    test_board, depth - 1, False, alpha, beta, next_player
+                    new_board, depth - 1, False, alpha, beta, next_player
                 )
                 
                 max_eval = max(max_eval, eval_score)
@@ -389,17 +379,13 @@ class Search:
             min_eval = float('inf')
             
             for move in ordered_moves[:12]:
-                test_board = board.copy()
-                start = move[0]
-                end = move[-1]
-                piece = test_board.get_piece(start)
-                test_board.set_piece(start, 0)
-                test_board.set_piece(end, piece)
+                # 使用正确的移动应用方法
+                new_board = ChineseCheckersMoves.apply_move(board, move)
                 
                 # 对手回合
                 next_player = self.get_opponent(player)
                 eval_score = self._alpha_beta(
-                    test_board, depth - 1, True, alpha, beta, next_player
+                    new_board, depth - 1, True, alpha, beta, next_player
                 )
                 
                 min_eval = min(min_eval, eval_score)
@@ -412,12 +398,20 @@ class Search:
             return min_eval
     
     def evaluate_board(self, board):
-        return self.eva.evaluate(board.cells.copy(), self.player)
+        """评估棋盘状态"""
+        if self.eva is None:
+            # 如果评估器未初始化，创建一个临时评估器
+            self.eva = ChineseCheckersEvaluator(board)
+        
+        # 注意：evaluator可能期望1/-1格式
+        board_player = self._to_board_player(self.player)
+        return self.eva.evaluate(board.cells.copy(), board_player)
     
     def _count_pieces_in_target(self, board, player):
         """计算在目标区域的棋子数"""
-        target_region = board.player_target_regions[player]
-        player_pieces = board.get_player_pieces(player)
+        board_player = self._to_board_player(player)
+        target_region = board.player_target_regions[board_player]
+        player_pieces = board.get_player_pieces(board_player)
         
         count = 0
         for piece in player_pieces:
@@ -429,7 +423,7 @@ class Search:
     def _calculate_progress(self, board, player):
         """计算玩家前进进度"""
         # player参数是1或2格式
-        board_player = 1 if player == 1 else 2
+        board_player = self._to_board_player(player)
         target_region = board.player_target_regions[board_player]
         player_pieces = board.get_player_pieces(board_player)
         
@@ -463,15 +457,15 @@ class Search:
         opponent_score = 0
         
         # AI玩家棋子
-        board_player = 1 if self.player == 1 else 2
-        for piece in board.get_player_pieces(board_player):
+        board_ai = self._to_board_player(self.player)
+        for piece in board.get_player_pieces(board_ai):
             distance = piece.distance(center)
             if distance <= 3:
                 ai_score += (4 - distance)
         
         # 对手棋子
         opponent = self.get_opponent(self.player)
-        board_opponent = 1 if opponent == 1 else 2
+        board_opponent = self._to_board_player(opponent)
         for piece in board.get_player_pieces(board_opponent):
             distance = piece.distance(center)
             if distance <= 3:
@@ -481,11 +475,12 @@ class Search:
     
     def _calculate_connectivity(self, board):
         """计算棋子连接度差异"""
-        def calculate_for_player(player_pieces):
-            if not player_pieces:
+        def calculate_for_player(board_player):
+            pieces = board.get_player_pieces(board_player)
+            if not pieces:
                 return 0
             
-            pieces_set = set(player_pieces)
+            pieces_set = set(pieces)
             total_connections = 0
             
             for piece in pieces_set:
@@ -498,13 +493,13 @@ class Search:
             return total_connections / 2  # 每条连接被计算了两次
         
         # AI玩家
-        board_player = 1 if self.player == 1 else 2
-        ai_connections = calculate_for_player(board.get_player_pieces(board_player))
+        board_ai = self._to_board_player(self.player)
+        ai_connections = calculate_for_player(board_ai)
         
         # 对手
         opponent = self.get_opponent(self.player)
-        board_opponent = 1 if opponent == 1 else 2
-        opponent_connections = calculate_for_player(board.get_player_pieces(board_opponent))
+        board_opponent = self._to_board_player(opponent)
+        opponent_connections = calculate_for_player(board_opponent)
         
         return ai_connections - opponent_connections
     
@@ -526,7 +521,8 @@ class Search:
         # 尝试占领对手的目标位置
         if board.is_empty(target):
             # 查找能到达该位置的棋子
-            for piece in board.get_player_pieces(1 if player == 1 else 2):
+            board_player = self._to_board_player(player)
+            for piece in board.get_player_pieces(board_player):
                 # 检查是否能移动到目标位置
                 moves = self._find_path_to_target(board, piece, target)
                 if moves:
@@ -539,7 +535,8 @@ class Search:
                 blocking_point = opponent_win_move[i]
                 if board.is_empty(blocking_point):
                     # 查找能到达该位置的棋子
-                    for piece in board.get_player_pieces(1 if player == 1 else 2):
+                    board_player = self._to_board_player(player)
+                    for piece in board.get_player_pieces(board_player):
                         moves = self._find_path_to_target(board, piece, blocking_point)
                         if moves:
                             blocking_moves.extend(moves)
@@ -568,11 +565,11 @@ class Search:
         # 获取起始位置的棋子所有者
         piece_owner = board.get_piece(start)
         if piece_owner != 0:
-            all_moves = ChineseCheckersMoves.generate_all_moves(board, piece_owner)
+            # 将棋子所有者转换为1或2格式
+            player_num = 1 if piece_owner == 1 else 2
+            all_moves = self.possible_moves(board, player_num)
             for move in all_moves:
                 if move[0] == start and move[-1] == target:
                     moves.append(move)
         
         return moves
-
-
