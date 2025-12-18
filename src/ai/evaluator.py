@@ -112,22 +112,22 @@ class ChineseCheckersEvaluator:
         # 计算各项评估指标
         evaluation = 0.0
 
-        # 1. 距离评估（到目标区域的距离）
+        # 1. 距离评估（保证前进）
         distance_score = self._evaluate_distance(
             my_positions, my_target, opp_positions, opp_target)
         evaluation += distance_score
 
-        # 2. 阵型评估
+        # 2. 阵型评估（惩罚孤立棋子）
         formation_score = self._evaluate_formation(
             my_positions, opp_positions)
         evaluation += formation_score
 
-        # 3. 连通性评估
+        # 3. 连通性评估（利用连跳）
         connectivity_score = self._evaluate_connectivity(
             my_positions, opp_positions)
         evaluation += connectivity_score
 
-        # 4. 进度评估
+        # 4. 进度评估（促进开局和结束）
         progress_score = self._evaluate_progress(
             my_positions, my_target, opp_positions, opp_target)
         evaluation += progress_score
