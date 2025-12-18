@@ -23,7 +23,9 @@ class Search:
     def get_opponent(self, player):
         """获取对手编号"""
         return -1 if player == 1 else 1
-    
+    def _to_board_player(self, player):
+        """将1/2格式转换为1/-1格式"""
+        return 1 if player == 1 else -1
     def possible_moves(self, board, player):
         """
         生成所有可能的移动 - 使用现有的移动生成器
