@@ -1,6 +1,4 @@
 class CubeCoord:
-    """立方体坐标表示六边形网格"""
-
     def __init__(self, q, r, s=None):
         if s is None:
             s = -q - r
@@ -8,98 +6,73 @@ class CubeCoord:
         self.q = q
         self.r = r
         self.s = s
-
     def __add__(self, other):
         return CubeCoord(self.q + other.q, self.r + other.r, self.s + other.s)
-
     def __sub__(self, other):
         return CubeCoord(self.q - other.q, self.r - other.r, self.s - other.s)
-
     def __mul__(self, scalar):
-        """乘以标量"""
         return CubeCoord(self.q * scalar, self.r * scalar, self.s * scalar)
-
     def __floordiv__(self, other):
         """本身除以other"""
         return CubeCoord(self.q // other, self.r // other, self.s // other)
-
     def __eq__(self, other):
         return self.q == other.q and self.r == other.r and self.s == other.s
-
     def __neg__(self):
         return CubeCoord(-self.q, -self.r, -self.s)
-
     def __hash__(self):
         return hash((self.q, self.r, self.s))
-
     def __repr__(self):
         return f"({self.q},{self.r},{self.s})"
-
     def distance(self, other):
-        """计算两个六边形之间的距离"""
         vec = self - other
         return max(abs(vec.q), abs(vec.r), abs(vec.s))
-
     def neighbor(self, direction):
-        """获取相邻格子"""
         return self + CubeCoord.hex_directions[direction % 6]
-
     def direction_to(self, other):
-        """获取到另一个格子的方向向量（如果是直线）"""
+        # 获取到另一个格子的方向向量（如果是直线）
         if self == other:
             return CubeCoord(0, 0, 0)
-
         vec = other - self
         # 找到最大公约数
         from math import gcd
-
         # 检查是否共线
         if vec.q == 0 and vec.r == 0 and vec.s == 0:
             return CubeCoord(0, 0, 0)
-
         # 找到非零分量
         non_zero = [abs(x) for x in [vec.q, vec.r, vec.s] if x != 0]
         if not non_zero:
             return CubeCoord(0, 0, 0)
-
         # 计算最大公约数
         current_gcd = non_zero[0]
         for num in non_zero[1:]:
             current_gcd = gcd(current_gcd, num)
-
         # 归一化向量
         unit_vec = CubeCoord(vec.q // current_gcd, vec.r // current_gcd, vec.s // current_gcd)
-
         # 检查是否是基本方向
         for dir_vec in CubeCoord.hex_directions:
             if unit_vec == dir_vec:
                 return unit_vec
-
         # 如果不是基本方向，返回None（不是直线）
         return None
-
     def is_straight_line_to(self, other):
         """检查是否在一条直线上"""
         return self.direction_to(other) is not None
-
     def cells_between(self, other):
         """获取两个格子之间的所有格子（不包括起点和终点）"""
         direction = self.direction_to(other)
         if direction is None:
             return []
-
         distance = self.distance(other)
         cells = []
         for step in range(1, distance):
             cell = self + (direction * step)
             cells.append(cell)
-
         return cells
 
     def is_neighbor(self, other):
         """检查是否是相邻格子"""
         return self.distance(other) == 1
-# 六边形的6个方向（立方坐标）
+# 立方坐标
 CubeCoord.hex_directions = [
     CubeCoord(1, 0, -1),  # 0: 东
     CubeCoord(1, -1, 0),  # 1: 东北
@@ -229,7 +202,6 @@ class ChineseCheckersBoard:
             for coord in region_cells[:10]:
                 self.cells[coord] = player
 
-    # === 基础方法 ===
     def is_valid_cell(self, coord):
         return coord in self.cells
 

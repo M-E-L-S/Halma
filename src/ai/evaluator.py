@@ -16,17 +16,17 @@ class EvaluationWeights:
     """评估权重配置"""
     def __init__(self):
         # 基础距离权重
-        self.DISTANCE_WEIGHT = 1.0
+        self.DISTANCE_WEIGHT = 2
 
-        self.MAX_DISTANCE_WEIGHT = 0.5  # 最远棋子距离权重
+        self.MAX_DISTANCE_WEIGHT = 1  # 最远棋子距离权重
         self.DISTANCE_LINE_WEIGHT = 1.0  # 平均距离权重
-        self.DISTANCE_SQUARED_WEIGHT = 0.5 # 距离平方和权重
+        self.DISTANCE_SQUARED_WEIGHT = 0.2 # 距离平方和权重
 
 
         # 棋子分布权重
-        self.FORMATE_WEIGHT = 1.0
+        self.FORMATE_WEIGHT = 1
 
-        self.ISOLATED_PIECE_PENALTY = -2  # 孤立棋子惩罚
+        self.ISOLATED_PIECE_PENALTY = -5  # 孤立棋子惩罚
 
 
         # 连通性权重
@@ -37,10 +37,10 @@ class EvaluationWeights:
 
 
         # 进度权重
-        self.PROGRESS_WEIGHT = 1.5
+        self.PROGRESS_WEIGHT = 1
 
-        self.LEFT_START_WEIGHT = 5.0  # 离开起始区域的奖励
-        self.COMPLETION_WEIGHT = 5.0  # 完成目标的奖励
+        self.LEFT_START_WEIGHT = 20.0  # 离开起始区域的奖励
+        self.COMPLETION_WEIGHT = 20.0  # 完成目标的奖励
 
 
 class ChineseCheckersEvaluator:
@@ -56,10 +56,9 @@ class ChineseCheckersEvaluator:
 
     def _initialize_from_board(self):
         """从棋盘对象初始化区域信息"""
-        # 获取所有单元格
         self.all_cells = self.board.get_all_cells()
 
-        # 定义目标区域（根据棋盘设置）
+        # 定义目标区域
         self.player1_target_cells = self._get_target_cells(Player.PLAYER1.value)
         self.player2_target_cells = self._get_target_cells(Player.PLAYER2.value)
 
@@ -92,7 +91,6 @@ class ChineseCheckersEvaluator:
         """
         self.board_state = _board_state
 
-        # 提取棋子位置
         player1_positions = [pos for pos, player in self.board_state.items()
                            if player == Player.PLAYER1.value]
         player2_positions = [pos for pos, player in self.board_state.items()
@@ -112,27 +110,25 @@ class ChineseCheckersEvaluator:
         # 计算各项评估指标
         evaluation = 0.0
 
-        # 1. 距离评估（到目标区域的距离）
+        # 1. 距离评估（保证前进）
         distance_score = self._evaluate_distance(
             my_positions, my_target, opp_positions, opp_target)
         evaluation += distance_score
 
-        # 2. 阵型评估
+        # 2. 阵型评估（惩罚孤立棋子）
         formation_score = self._evaluate_formation(
-            my_positions, opp_positions)
+            my_positions, my_target)
         evaluation += formation_score
 
-        # 3. 连通性评估
+        # 3. 连通性评估（利用连跳）
         connectivity_score = self._evaluate_connectivity(
-            my_positions, opp_positions)
+            my_positions, opp_positions, my_target, opp_target)
         evaluation += connectivity_score
 
-        # 4. 进度评估
+        # 4. 进度评估（促进开局和结束）
         progress_score = self._evaluate_progress(
             my_positions, my_target, opp_positions, opp_target)
         evaluation += progress_score
-        print(f"Total Evaluation: {evaluation:.2f}")
-        print(f"current_player: {current_player}")
 
         return evaluation
 
@@ -174,7 +170,7 @@ class ChineseCheckersEvaluator:
         avg_my_dist = sum(my_distances) / len(my_distances) if my_distances else 0
         avg_opp_dist = sum(opp_distances) / len(opp_distances) if opp_distances else 0
 
-        d_score += (avg_opp_dist - avg_my_dist) * self.weights.DISTANCE_LINE_WEIGHT
+        d_score += (0.5 * avg_opp_dist - avg_my_dist) * self.weights.DISTANCE_LINE_WEIGHT
 
         # 额外奖励：最远棋子的距离改善
         if my_distances:
@@ -182,14 +178,13 @@ class ChineseCheckersEvaluator:
             d_score -= max_my_dist * self.weights.MAX_DISTANCE_WEIGHT
 
         # 距离平方和：鼓励均衡前进
-        sum_sq_my = sum(d*d for d in my_distances)
-        sum_sq_opp = sum(d*d for d in opp_distances)
-        d_score += (sum_sq_opp - sum_sq_my) * self.weights.DISTANCE_SQUARED_WEIGHT
+        sum_sq_my = sum(d*d for d in my_distances) / len(my_distances) if my_distances else 0
+        sum_sq_opp = sum(d*d for d in opp_distances) / len(opp_distances) if opp_distances else 0
+        d_score += (0.5 * sum_sq_opp - sum_sq_my) * self.weights.DISTANCE_SQUARED_WEIGHT
 
         return d_score * self.weights.DISTANCE_WEIGHT
 
-    def _evaluate_formation(self, my_positions: List[CubeCoord],
-                           opp_positions: List[CubeCoord]) -> float:
+    def _evaluate_formation(self, my_positions: List[CubeCoord], my_target: Set[CubeCoord]) -> float:
         """
         评估棋子孤立程度
         """
@@ -198,8 +193,11 @@ class ChineseCheckersEvaluator:
 
         ave_dists: List[float] = []
         for pos in my_positions:
+            if pos in my_target:
+                ave_dists.append(0)
+                continue
             pos_dists = [pos.distance(other) for other in my_positions if other != pos]
-            ave_dist_score = (sum(pos_dists) / len(pos_dists)) * self.weights.ISOLATED_PIECE_PENALTY
+            ave_dist_score = ((sum(pos_dists) - min(pos_dists)) / (len(pos_dists) - 1)) * self.weights.ISOLATED_PIECE_PENALTY
             ave_dists.append(ave_dist_score)
 
         return (sum(ave_dists) / len(ave_dists)) * self.weights.FORMATE_WEIGHT
@@ -224,12 +222,16 @@ class ChineseCheckersEvaluator:
         return len(visited), max_depth
 
     def _evaluate_connectivity(self, my_positions: List[CubeCoord],
-                               opp_positions: List[CubeCoord]) -> float:
+                               opp_positions: List[CubeCoord], my_target: Set[CubeCoord],
+                               opp_target: Set[CubeCoord]) -> float:
         """
         详细评估棋子可跳跃能力
         我方能跳正分数，敌方能跳负分数
         跳跃距离越远分数越高
         """
+        my_positions = [pos for pos in my_positions if pos not in my_target]
+        opp_positions = [pos for pos in opp_positions if pos not in opp_target]
+
         my_reach_total = 0
         my_max_depth_total = 0
         for pos in my_positions:
@@ -244,7 +246,7 @@ class ChineseCheckersEvaluator:
             opp_reach_total += reach_count
             opp_max_depth_total = max(opp_max_depth_total, depth)
 
-        c_score = ((my_reach_total - opp_reach_total) * self.weights.reach_weight + (my_max_depth_total - opp_max_depth_total) * self.weights.depth_weight)
+        c_score = ((my_reach_total - 0.9 * opp_reach_total) * self.weights.reach_weight + (my_max_depth_total - 0.9 * opp_max_depth_total) * self.weights.depth_weight)
 
         return c_score * self.weights.CONNECTIVITY_WEIGHT
 
@@ -258,13 +260,12 @@ class ChineseCheckersEvaluator:
 
         # 计算已到达目标区域的棋子数量
         my_in_target = sum(1 for pos in my_positions if pos in my_target)
-        opp_in_target = sum(1 for pos in opp_positions if pos in opp_target)
 
         # 完成目标奖励
-        p_score += (my_in_target - opp_in_target) * self.weights.COMPLETION_WEIGHT
+        p_score += my_in_target * self.weights.COMPLETION_WEIGHT
 
         # 奖励离开起始区域的棋子
-        my_left_start = sum(1 for pos in my_positions if pos not in self.player1_start_cells)
+        my_left_start = sum(1 for pos in my_positions if pos not in opp_target)
         p_score += my_left_start * self.weights.LEFT_START_WEIGHT
 
         return p_score * self.weights.PROGRESS_WEIGHT
@@ -276,7 +277,6 @@ class ChineseCheckersEvaluator:
         用于搜索树的浅层评估，计算速度更快
         只考虑关键因素：距离、进度和位置价值
         """
-        # 提取棋子位置
         player1_positions = [pos for pos, player in board_state.items()
                            if player == Player.PLAYER1.value]
         player2_positions = [pos for pos, player in board_state.items()
