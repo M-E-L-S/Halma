@@ -139,7 +139,7 @@ class ChineseCheckersGUI:
         if not self.use_ai:
             # 初始化AI
             try:
-                self.ai_agent = Search(player=-1, depth=2)  # 使用Search类，玩家2，搜索深度3
+                self.ai_agent = Search(player=-1, depth=4)  # 使用Search类，玩家2，搜索深度3
                 self.use_ai = True
                 self.buttons['ai_toggle']['text'] = '关闭AI模式'
                 self.show_message("AI已启用")

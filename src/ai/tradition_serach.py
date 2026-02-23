@@ -226,7 +226,7 @@ class Search:
         
         return next(iter(board.cells.keys()))
     
-    def make_move(self, game_state, time_limit=3.0):
+    def make_move(self, game_state, time_limit=60.0):
         """
         选择最佳移动 - 主接口
         参数:
