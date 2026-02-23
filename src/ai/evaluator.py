@@ -1,6 +1,8 @@
 """
 中国跳棋评估函数模块
 实现了基于规则和启发式的双人中国跳棋局面评估
+
+author: 徐温洌
 """
 
 from typing import Dict, List, Optional, Set
@@ -16,38 +18,33 @@ class EvaluationWeights:
     """评估权重配置"""
     def __init__(self):
         # 基础距离权重
-        self.DISTANCE_WEIGHT = 2
+        self.DISTANCE_WEIGHT = 10
 
-        self.MAX_DISTANCE_WEIGHT = 1  # 最远棋子距离权重
-        self.DISTANCE_LINE_WEIGHT = 1.0  # 平均距离权重
-        self.DISTANCE_SQUARED_WEIGHT = 0.2 # 距离平方和权重
+        self.DISTANCE_SQUARED_WEIGHT = 1 # 距离平方和权重，量级10
 
 
         # 棋子分布权重
         self.FORMATE_WEIGHT = 1
 
-        self.ISOLATED_PIECE_PENALTY = -5  # 孤立棋子惩罚
+        self.ISOLATED_PIECE_PENALTY = -1  # 孤立棋子惩罚，量级10
 
 
         # 连通性权重
-        self.CONNECTIVITY_WEIGHT = 1.5
+        self.CONNECTIVITY_WEIGHT = 0.5
 
-        self.reach_weight = 0.1
-        self.depth_weight = 1
+        self.depth_weight = 10  # 向前跳跃深度权重，量级10
 
 
         # 进度权重
-        self.PROGRESS_WEIGHT = 1
+        self.PROGRESS_WEIGHT = 0.1
 
-        self.LEFT_START_WEIGHT = 20.0  # 离开起始区域的奖励
-        self.COMPLETION_WEIGHT = 20.0  # 完成目标的奖励
+        self.LEFT_START_WEIGHT = 10.0  # 离开起始区域的奖励，量级10
+        self.COMPLETION_WEIGHT = 10.0  # 完成目标的奖励，量级10
 
 
 class ChineseCheckersEvaluator:
     def __init__(self, _board, weights: Optional[EvaluationWeights] = None):
-        """
-        初始化评估器
-        """
+        """初始化评估器"""
         self.board = _board
         self.board_state = None
         self.weights = weights or EvaluationWeights()
@@ -58,11 +55,8 @@ class ChineseCheckersEvaluator:
         """从棋盘对象初始化区域信息"""
         self.all_cells = self.board.get_all_cells()
 
-        # 定义目标区域
         self.player1_target_cells = self._get_target_cells(Player.PLAYER1.value)
         self.player2_target_cells = self._get_target_cells(Player.PLAYER2.value)
-
-        # 定义起始区域
         self.player1_start_cells = self._get_start_cells(Player.PLAYER1.value)
         self.player2_start_cells = self._get_start_cells(Player.PLAYER2.value)
 
@@ -110,24 +104,24 @@ class ChineseCheckersEvaluator:
         # 计算各项评估指标
         evaluation = 0.0
 
-        # 1. 距离评估（保证前进）
+        # 1. 距离评估
         distance_score = self._evaluate_distance(
             my_positions, my_target, opp_positions, opp_target)
         evaluation += distance_score
 
-        # 2. 阵型评估（惩罚孤立棋子）
+        # 2. 阵型评估
         formation_score = self._evaluate_formation(
-            my_positions, my_target)
+            my_positions, opp_positions, my_target)
         evaluation += formation_score
 
-        # 3. 连通性评估（利用连跳）
+        # 3. 连通性评估
         connectivity_score = self._evaluate_connectivity(
             my_positions, opp_positions, my_target, opp_target)
         evaluation += connectivity_score
 
-        # 4. 进度评估（促进开局和结束）
+        # 4. 进度评估
         progress_score = self._evaluate_progress(
-            my_positions, my_target, opp_positions, opp_target)
+            my_positions, my_target, opp_target)
         evaluation += progress_score
 
         return evaluation
@@ -139,87 +133,71 @@ class ChineseCheckersEvaluator:
         """
         d_score = 0.0
 
-        # 计算我方棋子到目标区域的平均距离
+        # 计算双方棋子到目标区域的距离列表
+        # 不使用线性，使用距离平方和，保证均衡前进。
         my_distances = []
         for pos in my_positions:
             if pos in my_target:
                 my_distances.append(0)
             else:
-                # 计算到目标区域所有位置的最小距离
-                min_dist = float('inf')
-                for target in my_target:
-                    dist = pos.distance(target)
-                    if dist < min_dist:
-                        min_dist = dist
-                my_distances.append(min_dist)
+                d = pos.distance(next(iter(my_target)))
+                my_distances.append(d*d)
 
-        # 计算对方棋子到其目标区域的平均距离
         opp_distances = []
         for pos in opp_positions:
             if pos in opp_target:
                 opp_distances.append(0)
             else:
-                min_dist = float('inf')
-                for target in opp_target:
-                    dist = pos.distance(target)
-                    if dist < min_dist:
-                        min_dist = dist
-                opp_distances.append(min_dist)
+                d = pos.distance(next(iter(opp_target)))
+                opp_distances.append(d*d)
 
-        # 距离评估：对方平均距离 - 我方平均距离
-        avg_my_dist = sum(my_distances) / len(my_distances) if my_distances else 0
-        avg_opp_dist = sum(opp_distances) / len(opp_distances) if opp_distances else 0
-
-        d_score += (0.5 * avg_opp_dist - avg_my_dist) * self.weights.DISTANCE_LINE_WEIGHT
-
-        # 额外奖励：最远棋子的距离改善
-        if my_distances:
-            max_my_dist = max(my_distances)
-            d_score -= max_my_dist * self.weights.MAX_DISTANCE_WEIGHT
-
-        # 距离平方和：鼓励均衡前进
-        sum_sq_my = sum(d*d for d in my_distances) / len(my_distances) if my_distances else 0
-        sum_sq_opp = sum(d*d for d in opp_distances) / len(opp_distances) if opp_distances else 0
-        d_score += (0.5 * sum_sq_opp - sum_sq_my) * self.weights.DISTANCE_SQUARED_WEIGHT
+        avg_my = sum(my_distances) / len(my_distances) if my_distances else 0
+        avg_opp = sum(opp_distances) / len(opp_distances) if opp_distances else 0
+        d_score += (0.9 * avg_opp - avg_my) * self.weights.DISTANCE_SQUARED_WEIGHT
 
         return d_score * self.weights.DISTANCE_WEIGHT
 
-    def _evaluate_formation(self, my_positions: List[CubeCoord], my_target: Set[CubeCoord]) -> float:
+    def _evaluate_formation(self, my_positions: List[CubeCoord], opp_positions: List[CubeCoord], my_target: Set[CubeCoord]) -> float:
         """
-        评估棋子孤立程度
+        孤立棋子惩罚
         """
-        if len(my_positions) < 2:
-            return 0.0
+        i_score = 0.0
+        avg_dist = 0.0
 
-        ave_dists: List[float] = []
         for pos in my_positions:
-            if pos in my_target:
-                ave_dists.append(0)
-                continue
-            pos_dists = [pos.distance(other) for other in my_positions if other != pos]
-            ave_dist_score = ((sum(pos_dists) - min(pos_dists)) / (len(pos_dists) - 1)) * self.weights.ISOLATED_PIECE_PENALTY
-            ave_dists.append(ave_dist_score)
+            if pos not in my_target:
+                d = pos.distance(next(iter(my_target)))
+                avg_dist += d
+        avg_dist = avg_dist / len(my_positions) if my_positions else 0
 
-        return (sum(ave_dists) / len(ave_dists)) * self.weights.FORMATE_WEIGHT
+        #给落在己方棋子之后的孤立棋子惩罚，深入敌阵的不惩罚
+        for pos in my_positions:
+            if pos not in my_target:
+                positions = my_positions + opp_positions
+                min_dists = min([pos.distance(other) for other in positions])
+                if min_dists > 1 and pos.distance(next(iter(my_target))) > avg_dist:
+                    i_score += min_dists * 10 * self.weights.ISOLATED_PIECE_PENALTY
 
-    def jump_reach_and_depth(self, start: CubeCoord):
+        return i_score * self.weights.FORMATE_WEIGHT
+
+    def jump_reach_and_depth(self, start: CubeCoord, my_target: Set[CubeCoord]):
         visited: Set[CubeCoord] = set()
         max_depth = 0
         stack = [(start, 0)]
+        dist = start.distance(next(iter(my_target)))
         while stack:
             cur, _depth = stack.pop()
             for d in range(6):
                 mid = cur.neighbor(d)
                 landing = mid.neighbor(d)
-                # 必须存在格子：中间格被占、落点存在且为空
                 if mid in self.board_state and self.board_state[mid] != 0 and \
                         landing in self.board_state and self.board_state[landing] == 0 and \
                         landing not in visited and landing != start:
                     visited.add(landing)
                     stack.append((landing, _depth + 1))
-                    if _depth + 1 > max_depth:
+                    if _depth + 1 > max_depth and landing.distance(next(iter(my_target))) < dist:
                         max_depth = _depth + 1
-        return len(visited), max_depth
+        return max_depth
 
     def _evaluate_connectivity(self, my_positions: List[CubeCoord],
                                opp_positions: List[CubeCoord], my_target: Set[CubeCoord],
@@ -232,26 +210,19 @@ class ChineseCheckersEvaluator:
         my_positions = [pos for pos in my_positions if pos not in my_target]
         opp_positions = [pos for pos in opp_positions if pos not in opp_target]
 
-        my_reach_total = 0
         my_max_depth_total = 0
         for pos in my_positions:
-            reach_count, depth = self.jump_reach_and_depth(pos)
-            my_reach_total += reach_count
-            my_max_depth_total = max(my_max_depth_total, depth)
+            my_max_depth_total += self.jump_reach_and_depth(pos, my_target)
 
-        opp_reach_total = 0
         opp_max_depth_total = 0
         for pos in opp_positions:
-            reach_count, depth = self.jump_reach_and_depth(pos)
-            opp_reach_total += reach_count
-            opp_max_depth_total = max(opp_max_depth_total, depth)
+            opp_max_depth_total += self.jump_reach_and_depth(pos, opp_target)
 
-        c_score = ((my_reach_total - 0.9 * opp_reach_total) * self.weights.reach_weight + (my_max_depth_total - 0.9 * opp_max_depth_total) * self.weights.depth_weight)
+        c_score = (my_max_depth_total - 0.9 * opp_max_depth_total) * self.weights.depth_weight
 
         return c_score * self.weights.CONNECTIVITY_WEIGHT
 
-    def _evaluate_progress(self, my_positions: List[CubeCoord], my_target: Set[CubeCoord],
-                           opp_positions: List[CubeCoord], opp_target: Set[CubeCoord]) -> float:
+    def _evaluate_progress(self, my_positions: List[CubeCoord], my_target: Set[CubeCoord], opp_target: Set[CubeCoord]) -> float:
         """
         评估游戏进度
         已完成目标、接近目标的棋子等
