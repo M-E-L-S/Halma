@@ -1,9 +1,8 @@
 # moves.py
 from sympy import false
-
 from src.core.board import *
 class ChineseCheckersMoves:
-    """中国跳棋移动生成器"""
+    """移动生成器"""
     @staticmethod
     def remove_duplicate_moves(all_moves):
         """删除重复的移动路径 - 只比较起点和终点"""
@@ -120,7 +119,7 @@ class ChineseCheckersMoves:
                 if new_path not in moves:
                     moves.append(new_path)
 
-                # 继续递归（连续跳跃）
+                # 连续跳跃
                 further_jumps = ChineseCheckersMoves._generate_jump_moves(board, target_coord, new_path)
                 for further_jump in further_jumps:
                     if further_jump not in moves:
@@ -134,28 +133,28 @@ class ChineseCheckersMoves:
     @staticmethod
     def _is_valid_jump(board, from_coord, to_coord):
         """检查是否是从from到to的有效跳跃"""
-        # 1. 目标必须为空
+        # 目标必须为空
         if not board.is_empty(to_coord):
             return False
 
-        # 2. 必须在一条直线上
+        # 在一条直线上
         direction = from_coord.direction_to(to_coord)
         if direction is None:
             return False
 
-        # 3. 普通模式下距离必须为2
+        # 普通模式下距离必须为2
         distance = from_coord.distance(to_coord)
         current_mode = board.get_current_mode()
         if (current_mode == False) and (distance !=2):
             return False
 
-        # 4. 普通模式下中间的所有格子都必须有棋子
+        # 普通模式
         if not current_mode:
             for step in range(1, distance):
                 mid_cell = from_coord + (direction * step)
                 if not board.is_valid_cell(mid_cell) or board.is_empty(mid_cell):
                     return False
-        # 5. 镜像模式下正中为棋子，其余为空
+        # 镜像模式
         if current_mode:
             if distance % 2 != 0:
                 return False
@@ -178,12 +177,10 @@ class ChineseCheckersMoves:
         if len(move) < 2:
             return False
 
-        # 检查起始位置是否有玩家的棋子
         start = move[0]
         if board.get_piece(start) != player:
             return False
 
-        # 检查每个步骤是否合法
         for i in range(len(move) - 1):
             current = move[i]
             next_pos = move[i + 1]
@@ -207,7 +204,6 @@ class ChineseCheckersMoves:
         if len(move) < 2:
             return new_board
 
-        # 移动棋子
         start = move[0]
         end = move[-1]
         piece = new_board.get_piece(start)
@@ -219,7 +215,7 @@ class ChineseCheckersMoves:
 
     @staticmethod
     def find_best_jump_path(board, start_coord, target_coord):
-        """寻找从起点到目标的最佳跳跃路径（BFS）"""
+        """BFS"""
         if start_coord == target_coord:
             return [start_coord]
 
@@ -233,7 +229,6 @@ class ChineseCheckersMoves:
         while queue:
             current, path = queue.popleft()
 
-            # 尝试所有可能的跳跃
             for next_coord in board.get_all_cells():
                 if next_coord in visited:
                     continue
@@ -247,4 +242,4 @@ class ChineseCheckersMoves:
                     visited.add(next_coord)
                     queue.append((next_coord, new_path))
 
-        return None  # 没有找到路径
+        return None
