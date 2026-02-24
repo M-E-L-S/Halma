@@ -337,7 +337,6 @@ class Search:
     def _optimized_endgame_bfs(self, board, player, all_moves):
         """
         优化的终局BFS搜索
-
         author: 徐温洌
         """
         from collections import deque
