@@ -268,9 +268,7 @@ class ChineseCheckersEvaluator:
     def quick_evaluate(self, current_player: Player) -> float:
         """
         快速评估函数
-
-        用于搜索树的浅层评估，计算速度更快
-        只考虑关键因素：距离、进度和位置价值
+        测试用。
         """
         player1_positions = [pos for pos, player in board_state.items()
                            if player == Player.PLAYER1.value]
@@ -288,15 +286,12 @@ class ChineseCheckersEvaluator:
             my_target = self.player2_target_cells
             opp_target = self.player1_target_cells
 
-        # 快速评估只考虑关键因素
         score = 0.0
 
-        # 1. 距离评估
         my_avg_dist = self._average_distance_to_target(my_positions, my_target)
         opp_avg_dist = self._average_distance_to_target(opp_positions, opp_target)
         score += (opp_avg_dist - my_avg_dist) * 1.5
 
-        # 2. 进度评估
         my_in_target = sum(1 for pos in my_positions if pos in my_target)
         opp_in_target = sum(1 for pos in opp_positions if pos in opp_target)
         score += (my_in_target - opp_in_target) * 2.0
@@ -304,7 +299,6 @@ class ChineseCheckersEvaluator:
         return score
 
     def _average_distance_to_target(self, positions: List[CubeCoord], target: Set[CubeCoord]) -> float:
-        """计算到目标区域的平均距离"""
         if not positions:
             return 0.0
 
@@ -317,22 +311,15 @@ class ChineseCheckersEvaluator:
 
         return total_dist / len(positions)
 
-
-# 使用示例
 if __name__ == "__main__":
-    # 创建棋盘
     board = ChineseCheckersBoard()
 
-    # 创建评估器
     evaluator = ChineseCheckersEvaluator(board)
 
-    # 使用当前棋盘状态
-    board_state = board.cells.copy()  # 获取当前棋盘状态
+    board_state = board.cells.copy()
 
-    # 评估当前局面（从玩家1的角度）
     score = evaluator.evaluate(board_state, 1)
     print(f"玩家1的评估分数: {score:.2f}")
 
-    # 快速评估
     quick_score = evaluator.quick_evaluate(board_state)
     print(f"玩家1的快速评估分数: {quick_score:.2f}")

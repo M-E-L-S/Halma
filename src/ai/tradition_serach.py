@@ -335,6 +335,11 @@ class Search:
         return best_move if best_move else (ordered_moves[0] if ordered_moves else None)
 
     def _optimized_endgame_bfs(self, board, player, all_moves):
+        """
+        优化的终局BFS搜索
+
+        author: 徐温洌
+        """
         from collections import deque
 
         board_player = self._to_board_player(player)
@@ -413,8 +418,8 @@ class Search:
         self.nodes_evaluated += 1
         
         if depth == 0:
-            return self.eva.evaluate(board.cells.copy(), player)
-            #return self.eva.NNUE_evaluate(board)
+            return self.eva.evaluate(board.cells.copy(), player) #手写评估
+            #return self.eva.NNUE_evaluate(board) #NNUE神经网络评估
         
         if self.check_winner(board, self.player):
             return 10000 + depth * 100
