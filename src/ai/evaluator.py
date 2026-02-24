@@ -5,9 +5,12 @@
 author: 徐温洌
 """
 
+import torch
+
 from typing import Dict, List, Optional, Set
 from enum import Enum
 from src.core.board import CubeCoord, ChineseCheckersBoard
+from src.ai.train_nnue_chinese_checkers import encode_board, NNUE
 
 class Player(Enum):
     """玩家枚举"""
@@ -18,7 +21,7 @@ class EvaluationWeights:
     """评估权重配置"""
     def __init__(self):
         # 基础距离权重
-        self.DISTANCE_WEIGHT = 10
+        self.DISTANCE_WEIGHT = 5
 
         self.DISTANCE_SQUARED_WEIGHT = 1 # 距离平方和权重，量级10
 
@@ -39,7 +42,7 @@ class EvaluationWeights:
         self.PROGRESS_WEIGHT = 0.1
 
         self.LEFT_START_WEIGHT = 10.0  # 离开起始区域的奖励，量级10
-        self.COMPLETION_WEIGHT = 10.0  # 完成目标的奖励，量级10
+        self.COMPLETION_WEIGHT = 100.0  # 完成目标的奖励，量级10
 
 
 class ChineseCheckersEvaluator:
@@ -50,6 +53,16 @@ class ChineseCheckersEvaluator:
         self.weights = weights or EvaluationWeights()
 
         self._initialize_from_board()
+
+        self.SCALE = 1000
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model = NNUE()
+        import os
+        current_dir = os.path.dirname(__file__)
+        model_path = os.path.join(current_dir, "nnue_chinese.pt")
+        self.model.load_state_dict(torch.load(model_path, map_location=self.device, weights_only=True))
+        self.model.to(self.device)
+        self.model.eval()
 
     def _initialize_from_board(self):
         """从棋盘对象初始化区域信息"""
@@ -126,6 +139,16 @@ class ChineseCheckersEvaluator:
 
         return evaluation
 
+    @torch.no_grad()
+    def NNUE_evaluate(self, _board_state: Dict[CubeCoord, int]) -> float:
+        x = encode_board(_board_state)
+
+        x = x.to(self.device)
+
+        score = self.model(x).item()
+
+        return score * self.SCALE
+
     def _evaluate_distance(self, my_positions: List[CubeCoord], my_target: Set[CubeCoord],
                           opp_positions: List[CubeCoord], opp_target: Set[CubeCoord]) -> float:
         """
@@ -135,12 +158,13 @@ class ChineseCheckersEvaluator:
 
         # 计算双方棋子到目标区域的距离列表
         # 不使用线性，使用距离平方和，保证均衡前进。
+        # +4保证在接近终点时没有量级下降
         my_distances = []
         for pos in my_positions:
             if pos in my_target:
                 my_distances.append(0)
             else:
-                d = pos.distance(next(iter(my_target)))
+                d = pos.distance(next(iter(my_target))) + 4
                 my_distances.append(d*d)
 
         opp_distances = []
@@ -148,7 +172,7 @@ class ChineseCheckersEvaluator:
             if pos in opp_target:
                 opp_distances.append(0)
             else:
-                d = pos.distance(next(iter(opp_target)))
+                d = pos.distance(next(iter(opp_target))) + 4
                 opp_distances.append(d*d)
 
         avg_my = sum(my_distances) / len(my_distances) if my_distances else 0

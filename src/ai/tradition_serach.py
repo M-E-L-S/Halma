@@ -1,14 +1,10 @@
-import numpy as np
-from typing import List, Tuple, Optional
-import math
-from collections import deque
 import time
 from src.core.board import ChineseCheckersBoard, CubeCoord
 from src.core.moves import ChineseCheckersMoves
 
 # 检查evaluator是否存在
 try:
-    from .evaluator import ChineseCheckersEvaluator
+    from src.ai.evaluator import ChineseCheckersEvaluator
     EVALUATOR_AVAILABLE = True
 except ImportError:
     EVALUATOR_AVAILABLE = False
@@ -418,6 +414,7 @@ class Search:
         
         if depth == 0:
             return self.eva.evaluate(board.cells.copy(), player)
+            #return self.eva.NNUE_evaluate(board)
         
         if self.check_winner(board, self.player):
             return 10000 + depth * 100
